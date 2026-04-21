@@ -1,10 +1,21 @@
 {
   "name": "mm-skill-market",
-  "description": "Mathematical Modeling Skills Marketplace — universal modeling agent for all competitions",
+  "owner": {
+    "name": "MM-Agent Contributors"
+  },
+  "metadata": {
+    "description": "Mathematical Modeling Skills Marketplace"
+  },
   "plugins": [
     {
       "name": "math-modeling",
-      "path": "./plugins/math-modeling"
+      "source": "./plugins/math-modeling",
+      "description": "Universal mathematical modeling agent for all competitions (MCM/ICM, CUMCM, MathorCup, etc.). Full pipeline: analysis, modeling, solving, review, and LaTeX paper generation.",
+      "version": "0.3.0",
+      "author": {
+        "name": "MM-Agent Contributors"
+      },
+      "license": "CC-BY-NC"
     }
   ]
 }
