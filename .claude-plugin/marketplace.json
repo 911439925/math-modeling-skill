@@ -1,0 +1,10 @@
+{
+  "name": "mm-skill-market",
+  "description": "Mathematical Modeling Skills Marketplace — universal modeling agent for all competitions",
+  "plugins": [
+    {
+      "name": "math-modeling",
+      "path": "./plugins/math-modeling"
+    }
+  ]
+}

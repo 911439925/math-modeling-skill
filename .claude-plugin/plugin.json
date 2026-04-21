@@ -1,8 +1,0 @@
-{
-  "name": "math-modeling",
-  "description": "Universal mathematical modeling agent for all competitions (MCM/ICM, CUMCM, MathorCup, etc.). Full pipeline: analysis, modeling, solving, and LaTeX paper generation.",
-  "version": "0.2.0",
-  "author": {
-    "name": "MM-Agent Contributors"
-  }
-}

@@ -13,6 +13,45 @@ A Claude Code skill plugin for full-pipeline mathematical modeling, designed for
 | 深圳杯数学建模挑战赛 | SZ Cup | ~2 weeks | Chinese paper |
 | 其他建模比赛 | — | — | LaTeX templates extensible |
 
+## Installation
+
+### Option 1: Claude Code Marketplace (Recommended)
+
+```bash
+# Add the marketplace
+/plugin marketplace add 911439925/math-modeling-skill
+
+# Install the plugin
+/plugin install math-modeling@mm-skill-market
+```
+
+Private repo: set `GITHUB_TOKEN` env var first:
+```bash
+export GITHUB_TOKEN=ghp_your_token_here
+```
+
+### Option 2: Git clone
+
+```bash
+# Clone to Claude Code skills directory
+git clone https://github.com/911439925/math-modeling-skill.git ~/.claude/skills/math-modeling-plugin
+
+# Windows PowerShell
+git clone https://github.com/911439925/math-modeling-skill.git "$env:USERPROFILE\.claude\skills\math-modeling-plugin"
+```
+
+### Updating
+
+Marketplace users:
+```bash
+/plugin update math-modeling@mm-skill-market
+```
+
+Git clone users:
+```bash
+cd ~/.claude/skills/math-modeling-plugin && git pull
+```
+
 ## Features
 
 - **Problem Analysis**: Deep analysis with Actor-Critic self-improvement (independent Critic subagent)
@@ -22,50 +61,6 @@ A Claude Code skill plugin for full-pipeline mathematical modeling, designed for
 - **Sensitivity Analysis**: Systematic sensitivity and robustness testing
 - **Paper Generation**: LaTeX source generation with competition-specific templates → PDF
 - **Git Versioning**: Automatic workspace versioning with per-stage commits and iteration tags
-
-## Installation
-
-### Option 1: Clone directly (Recommended)
-
-```bash
-# Clone to Claude Code skills directory
-git clone https://github.com/911439925/math-modeling-skill.git ~/.claude/skills/math-modeling-plugin
-
-# Or on Windows (PowerShell)
-git clone https://github.com/911439925/math-modeling-skill.git "$env:USERPROFILE\.claude\skills\math-modeling-plugin"
-```
-
-The `.claude-plugin/plugin.json` will register all sub-skills automatically.
-
-### Option 2: One-click install script
-
-```powershell
-# Windows PowerShell
-Invoke-WebRequest -Uri "https://raw.githubusercontent.com/911439925/math-modeling-skill/main/deploy.ps1" -OutFile "deploy_mm_skill.ps1"
-.\deploy_mm_skill.ps1
-```
-
-### Option 3: Manual copy
-
-Download this repository and copy the `skills/` subdirectories into `~/.claude/skills/`:
-
-```
-skills/
-├── math-model-command/SKILL.md   → ~/.claude/skills/math-model-command/
-├── math-modeling/SKILL.md + ref/ → ~/.claude/skills/math-modeling/
-├── mm-analysis/SKILL.md          → ~/.claude/skills/mm-analysis/
-├── mm-modeling/SKILL.md          → ~/.claude/skills/mm-modeling/
-├── mm-solving/SKILL.md           → ~/.claude/skills/mm-solving/
-├── mm-review/SKILL.md            → ~/.claude/skills/mm-review/
-└── mm-writing/SKILL.md           → ~/.claude/skills/mm-writing/
-```
-
-### Updating
-
-```bash
-cd ~/.claude/skills/math-modeling-plugin   # or wherever you cloned
-git pull
-```
 
 ## Usage
 
