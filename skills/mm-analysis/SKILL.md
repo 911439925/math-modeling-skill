@@ -4,7 +4,7 @@ description: >
   Stage 1 of the mathematical modeling pipeline. Performs deep problem analysis
   using Actor-Critic self-improvement. Invoked by the math-modeling skill during
   Stage 1. Do not invoke directly — use /math-model instead.
-version: 0.1.0
+version: 0.2.0
 ---
 
 # Stage 1: Problem Analysis
@@ -35,28 +35,54 @@ If the problem is in a PDF or image, use the Read tool to extract the content.
 
 If the problem includes data files:
 
-1. Run a Python script to examine the data:
+1. Determine data format and load appropriately:
+   - CSV: `pd.read_csv('path/to/data.csv')`
+   - Excel (single or multi-sheet): `pd.read_excel('path/to/data.xlsx', sheet_name=None)`
+   - JSON: `pd.read_json('path/to/data.json')`
+   - Image-based tables: Note in summary that OCR/extraction is needed
+
+2. Run a Python script to examine the data:
    ```python
    import pandas as pd
+   import numpy as np
    import json
 
-   data = pd.read_csv('path/to/data.csv')  # adjust format as needed
+   # Adjust loading method based on file type
+   data = pd.read_csv('path/to/data.csv')  # or read_excel, read_json
+
+   # Basic summary
    summary = {
        'shape': list(data.shape),
        'columns': list(data.columns),
        'dtypes': {col: str(dt) for col, dt in data.dtypes.items()},
        'head': data.head(3).to_dict(),
        'describe': data.describe().to_dict(),
-       'null_counts': data.isnull().sum().to_dict()
+       'null_counts': data.isnull().sum().to_dict(),
+       'null_pct': (data.isnull().sum() / len(data) * 100).to_dict()
    }
    print(json.dumps(summary, indent=2, default=str))
+
+   # Outlier detection (IQR method)
+   for col in data.select_dtypes(include=[np.number]).columns:
+       Q1, Q3 = data[col].quantile(0.25), data[col].quantile(0.75)
+       IQR = Q3 - Q1
+       outliers = ((data[col] < Q1 - 1.5*IQR) | (data[col] > Q3 + 1.5*IQR)).sum()
+       if outliers > 0:
+           print(f"WARNING: {col} has {outliers} potential outliers ({outliers/len(data)*100:.1f}%)")
+
+   # Data quality issues
+   for col in data.columns:
+       if data[col].isnull().sum() > 0:
+           pct = data[col].isnull().sum() / len(data) * 100
+           print(f"WARNING: {col} has {pct:.1f}% missing values")
    ```
 
-2. Generate a concise text summary of the data covering:
+3. Generate a concise text summary of the data covering:
    - Number of records and fields
    - Data types and ranges
    - Missing values and anomalies
    - Key statistics
+   - Potential data quality issues and cleaning suggestions
 
 ### Step 3: Problem Analysis (Actor-Critic, 2 rounds)
 
@@ -75,7 +101,7 @@ Produce a deep analysis covering:
 - **Alternative perspectives**: Different ways to frame the problem
 - **Risks and uncertainties**: Inherent in choosing modeling approaches
 
-Write as continuous prose paragraphs. No Markdown formatting. No bullet points.
+Write as structured analysis: use numbered lists for assumptions, tables for variable definitions, and numbered LaTeX for key equations. Use coherent paragraphs for reasoning and discussion.
 
 #### Critic: Evaluate the Analysis
 
@@ -86,7 +112,7 @@ Critically examine the analysis focusing on:
 - **Context**: Does it consider real-world implications?
 - **Data awareness**: Does it fully leverage available data?
 
-Do NOT provide improvement suggestions. Only highlight weaknesses.
+Must provide specific improvement directions: identify the exact problem and suggest which direction to improve (not the full solution).
 
 #### Improvement: Refine the Analysis
 

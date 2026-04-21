@@ -27,11 +27,17 @@ When this command is invoked:
    - If `$ARGUMENTS` is text, use it as the problem description
    - If empty, check if a problem was already discussed in conversation
 
-2. **Initialize workspace**:
+2. **Detect competition type** (if mentioned):
+   - "美赛" / "MCM" / "ICM" → MCM/ICM (English paper)
+   - "国赛" / "CUMCM" → CUMCM (Chinese paper)
+   - "MathorCup" → MathorCup
+   - Default: generic
+
+3. **Initialize workspace**:
    ```bash
-   mkdir -p mm-workspace/code mm-workspace/data mm-workspace/charts
+   mkdir -p mm-workspace/code mm-workspace/data mm-workspace/charts mm-workspace/05_paper/sections mm-workspace/05_paper/figures
    ```
 
-3. **Invoke the main skill**: Activate the `math-modeling` skill and follow its workflow starting from Stage 1.
+4. **Invoke the main skill**: Activate the `math-modeling` skill and follow its workflow starting from Stage 1.
 
-4. **Execute the full pipeline**: Follow the math-modeling skill's stage-by-stage instructions, pausing at each stage for user review.
+5. **Execute the full pipeline**: Follow the math-modeling skill's stage-by-stage instructions. Stage 1 and 2 pause for user review. Stage 3 runs automatically. Stage 4 generates LaTeX paper.

@@ -1,0 +1,126 @@
+% MCM/ICM Paper Template
+% 美赛论文模板 - Summary Sheet + Paper Body
+\documentclass[12pt]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{enumitem}
+\usepackage{geometry}
+\usepackage{hyperref}
+\usepackage{caption}
+\usepackage{float}
+\usepackage{multirow}
+\usepackage{longtable}
+\usepackage{times}
+\usepackage{setspace}
+
+\geometry{left=1in, right=1in, top=1in, bottom=1in}
+\setstretch{1.5}
+
+% Team number placeholder
+\newcommand{\teamnumber}{%%TEAM_NUMBER%%}
+
+\begin{document}
+
+% ============================================================
+% Summary Sheet (most important page)
+% ============================================================
+\begin{center}
+{\Large\bfseries Summary Sheet}
+\end{center}
+
+\vspace{0.5cm}
+
+\noindent\textbf{Team \#:} \teamnumber \\[0.3cm]
+\noindent\textbf{Problem Chosen:} %%PROBLEM_CHOSEN%% \\[0.3cm]
+\hrule
+\vspace{0.5cm}
+
+%%ABSTRACT%%
+
+\vspace{0.5cm}
+\noindent\textbf{Keywords:} %%KEYWORDS%%
+
+\newpage
+
+% ============================================================
+% Table of Contents
+% ============================================================
+\tableofcontents
+\newpage
+
+% ============================================================
+% 1. Introduction
+% ============================================================
+\section{Introduction}
+
+\subsection{Problem Background}
+%%SECTION_PROBLEM%%
+
+\subsection{Our Approach}
+%%SECTION_APPROACH%%
+
+% ============================================================
+% 2. Assumptions and Justifications
+% ============================================================
+\section{Assumptions and Justifications}
+%%SECTION_ASSUMPTIONS%%
+
+% ============================================================
+% 3. Notation
+% ============================================================
+\section{Notation}
+%%SECTION_NOTATION%%
+
+% ============================================================
+% 4. Model Establishment
+% ============================================================
+\section{Model Establishment}
+%%SECTION_MODEL%%
+
+% ============================================================
+% 5. Model Solution and Results
+% ============================================================
+\section{Model Solution and Results}
+%%SECTION_SOLUTION%%
+
+% ============================================================
+% 6. Results and Analysis
+% ============================================================
+\section{Results and Analysis}
+%%SECTION_RESULTS%%
+
+% ============================================================
+% 7. Sensitivity Analysis
+% ============================================================
+\section{Sensitivity Analysis}
+%%SECTION_SENSITIVITY%%
+
+% ============================================================
+% 8. Model Evaluation
+% ============================================================
+\section{Model Evaluation}
+
+\subsection{Strengths}
+%%SECTION_STRENGTHS%%
+
+\subsection{Weaknesses and Future Work}
+%%SECTION_WEAKNESSES%%
+
+% ============================================================
+% References
+% ============================================================
+\section*{References}
+%%SECTION_REFERENCES%%
+
+% ============================================================
+% Appendix (optional)
+% ============================================================
+\appendix
+\section{Code}
+%%SECTION_APPENDIX%%
+
+\end{document}

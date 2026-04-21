@@ -4,7 +4,7 @@ description: >
   Stage 2 of the mathematical modeling pipeline. Performs high-level modeling,
   problem decomposition into subtasks, and DAG dependency analysis. Invoked by
   the math-modeling skill during Stage 2. Do not invoke directly.
-version: 0.1.0
+version: 0.2.0
 ---
 
 # Stage 2: Modeling & Decomposition
@@ -34,7 +34,7 @@ Design a complete modeling solution covering:
 - **Validation plan**: How to verify the model's correctness
 - **Innovation**: Novel formulations or extensions
 
-Write as continuous prose paragraphs. Use LaTeX for mathematical expressions. No Markdown formatting.
+Write as structured modeling solution: use numbered lists for assumptions, tables for variable definitions, and numbered LaTeX equations. Use coherent paragraphs for reasoning.
 
 #### Critic: Evaluate the Modeling Solution
 
@@ -45,7 +45,7 @@ Critically examine focusing on:
 - **Computability**: Is the model solvable in practice?
 - **Completeness**: Does it cover all problem requirements?
 
-Do NOT provide suggestions. Only highlight weaknesses.
+Must provide specific improvement directions: identify the exact problem and suggest which direction to improve (not the full solution).
 
 #### Improvement: Refine the Modeling Solution
 
@@ -55,7 +55,7 @@ Produce an improved version addressing all critiques. Complete standalone docume
 
 ### Step 2: Problem Decomposition
 
-Split the modeling solution into 3-5 subtasks (default: 4).
+Split the modeling solution into 3-6 subtasks (default: 5, including sensitivity analysis).
 
 **Decomposition principles:**
 - Each subtask addresses a distinct aspect of the overall problem
@@ -63,6 +63,7 @@ Split the modeling solution into 3-5 subtasks (default: 4).
 - Each subtask has clear objectives, methods, and expected outputs
 - No redundancy between subtasks
 - All aspects of the modeling solution are covered
+- **The last subtask should be a sensitivity analysis / robustness testing task** that depends on all model-building tasks, testing parameter perturbations, assumption variations, and result stability
 
 For each subtask, provide:
 - **ID**: Sequential number (1, 2, 3, ...)
