@@ -1,38 +1,8 @@
 {
   "name": "math-modeling",
-  "description": "Universal mathematical modeling agent for all competitions (MCM/ICM, CUMCM, MathorCup, etc.). Full pipeline: analysis → modeling → solving → review → LaTeX paper generation.",
+  "description": "Universal mathematical modeling agent for all competitions (MCM/ICM, CUMCM, MathorCup, etc.). Full pipeline: analysis, modeling, solving, review, and LaTeX paper generation.",
   "version": "0.3.0",
   "author": {
     "name": "MM-Agent Contributors"
-  },
-  "skills": [
-    {
-      "name": "math-modeling",
-      "path": "./skills/math-modeling/SKILL.md"
-    },
-    {
-      "name": "math-model-command",
-      "path": "./skills/math-model-command/SKILL.md"
-    },
-    {
-      "name": "mm-analysis",
-      "path": "./skills/mm-analysis/SKILL.md"
-    },
-    {
-      "name": "mm-modeling",
-      "path": "./skills/mm-modeling/SKILL.md"
-    },
-    {
-      "name": "mm-solving",
-      "path": "./skills/mm-solving/SKILL.md"
-    },
-    {
-      "name": "mm-review",
-      "path": "./skills/mm-review/SKILL.md"
-    },
-    {
-      "name": "mm-writing",
-      "path": "./skills/mm-writing/SKILL.md"
-    }
-  ]
+  }
 }
