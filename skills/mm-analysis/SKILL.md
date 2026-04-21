@@ -103,16 +103,35 @@ Produce a deep analysis covering:
 
 Write as structured analysis: use numbered lists for assumptions, tables for variable definitions, and numbered LaTeX for key equations. Use coherent paragraphs for reasoning and discussion.
 
-#### Critic: Evaluate the Analysis
+#### Critic: Evaluate the Analysis (Independent Subagent)
 
-Critically examine the analysis focusing on:
-- **Depth**: Does it go beyond surface observations?
-- **Novelty**: Does it offer new insights?
-- **Rigor**: Are the steps logically consistent?
-- **Context**: Does it consider real-world implications?
-- **Data awareness**: Does it fully leverage available data?
+Use the Agent tool to dispatch an independent subagent for the Critic role. The subagent must NOT inherit the Actor's reasoning context — it only receives the Actor's final output.
 
-Must provide specific improvement directions: identify the exact problem and suggest which direction to improve (not the full solution).
+Dispatch an Agent with the following prompt structure:
+```
+你是一名严格的数学建模评审专家（Critic 角色）。请对以下问题分析进行批评。
+
+## 审查标准
+- 深度：是否超越表面观察？假设和隐含约束是否充分考虑？
+- 新颖性：是否提供了新见解，还是复述已知方法？
+- 严谨性：逻辑是否一致？数学表述是否精确？
+- 上下文意识：是否考虑了实际约束和现实世界的影响？
+- 数据意识：是否充分利用了可用数据？数据处理是否合理？
+
+## 问题背景
+{Insert problem text summary, 1-2 paragraphs}
+
+## 被审查的分析内容
+{Insert Actor's complete analysis output}
+
+## 输出要求
+1. 逐一指出具体问题（附位置引用）
+2. 每个问题给出改进方向（指出方向，不提供完整方案）
+3. 最后给出总体评价：是否存在重大问题需要追加一轮
+4. 直接输出批评内容，不要有多余的寒暄
+```
+
+Receive the Critic feedback and proceed to Improvement.
 
 #### Improvement: Refine the Analysis
 
@@ -141,6 +160,8 @@ Write the final output to `mm-workspace/01_analysis.json`:
 ```
 
 Use the Write tool to save this file.
+
+Then commit: `cd mm-workspace && git add -A && git commit -m "feat(s1): problem analysis complete"`
 
 ### Step 5: Present to User
 

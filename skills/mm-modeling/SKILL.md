@@ -36,16 +36,35 @@ Design a complete modeling solution covering:
 
 Write as structured modeling solution: use numbered lists for assumptions, tables for variable definitions, and numbered LaTeX equations. Use coherent paragraphs for reasoning.
 
-#### Critic: Evaluate the Modeling Solution
+#### Critic: Evaluate the Modeling Solution (Independent Subagent)
 
-Critically examine focusing on:
-- **Assumption reasonableness**: Are assumptions justified?
-- **Technical fit**: Does the approach match the problem type?
-- **Data compatibility**: Can available data support the model?
-- **Computability**: Is the model solvable in practice?
-- **Completeness**: Does it cover all problem requirements?
+Use the Agent tool to dispatch an independent subagent for the Critic role. The subagent must NOT inherit the Actor's reasoning context — it only receives the Actor's final output.
 
-Must provide specific improvement directions: identify the exact problem and suggest which direction to improve (not the full solution).
+Dispatch an Agent with the following prompt structure:
+```
+你是一名严格的数学建模评审专家（Critic 角色）。请对以下建模方案进行批评。
+
+## 审查标准
+- 假设合理性：假设是否有充分的理由支撑？
+- 技术匹配度：所选方法是否匹配问题类型？
+- 数据兼容性：可用数据能否支持该模型？
+- 可计算性：该模型在实际中是否可解？
+- 完整性：是否覆盖了所有问题要求？
+
+## 问题背景
+{Insert brief problem description, 1-2 paragraphs}
+
+## 被审查的建模方案
+{Insert Actor's complete modeling solution}
+
+## 输出要求
+1. 逐一指出具体问题（附位置引用）
+2. 每个问题给出改进方向（指出方向，不提供完整方案）
+3. 最后给出总体评价：是否存在重大问题需要追加一轮
+4. 直接输出批评内容，不要有多余的寒暄
+```
+
+Receive the Critic feedback and proceed to Improvement.
 
 #### Improvement: Refine the Modeling Solution
 
@@ -118,6 +137,8 @@ Write to `mm-workspace/02_modeling.json`:
   "stage": "modeling_complete"
 }
 ```
+
+Then commit: `cd mm-workspace && git add -A && git commit -m "feat(s2): modeling and decomposition complete"`
 
 ### Step 5: Present to User
 

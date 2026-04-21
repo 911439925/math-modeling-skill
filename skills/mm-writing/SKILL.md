@@ -128,6 +128,8 @@ Write the complete paper to `mm-workspace/05_paper/main.tex`:
 - Ensure all figures are referenced
 - Write BibTeX file to `mm-workspace/05_paper/refs.bib` (if applicable)
 
+Then commit: `cd mm-workspace && git add -A && git commit -m "feat(s4): paper generated"`
+
 ### Step 6: Compile to PDF
 
 ```bash

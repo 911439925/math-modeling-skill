@@ -154,6 +154,54 @@ Craft a comprehensive answer that:
 - Explores broader implications
 - Is distinct from the result interpretation (adds analysis, not repetition)
 
+### Step 8.5: Result Verification
+
+After generating the answer, perform an internal verification check (inline, no subagent needed):
+
+#### Check 1: Numerical Sanity
+- Are all numerical results in physically reasonable ranges?
+  - Probabilities ∈ [0, 1], percentages ∈ [0, 100%]
+  - Counts, areas, volumes ≥ 0
+  - Speeds, temperatures, pressures within known bounds for the domain
+- Are there any orders-of-magnitude errors (e.g., a population of 10^15)?
+
+#### Check 2: Cross-Task Consistency (if dependencies exist)
+- Read prerequisite task outputs from `mm-workspace/03_task_{dep_id}.json`
+- Verify: does the current task's input data match the prerequisite's output format and range?
+- Verify: are conclusions between related tasks logically consistent (not contradictory)?
+
+#### Check 3: Completeness
+- Re-read the task description from `mm-workspace/02_modeling.json`
+- Check: has every sub-question in the task been addressed?
+- Check: are all required output files generated?
+
+#### Check 4: Physical/Business Meaning
+- Do the results make sense in the problem's domain context?
+- If the problem involves real-world quantities, do they match common sense?
+
+#### Verification Output
+
+Record the verification results. If all checks pass, proceed to Step 9. If any check fails:
+1. Note the specific failure in the `verification` field
+2. Attempt one fix: revise the code or analysis to address the issue
+3. Re-run the failed check
+4. Proceed to Step 9 regardless (with verification status recorded)
+
+Save verification results in the task JSON's `verification` field:
+```json
+{
+  "verification": {
+    "passed": true,
+    "checks": [
+      {"item": "numerical_sanity", "passed": true, "note": "all values in expected range"},
+      {"item": "cross_task_consistency", "passed": true, "note": "output consistent with task 1"},
+      {"item": "completeness", "passed": true, "note": "all sub-questions addressed"},
+      {"item": "domain_meaning", "passed": true, "note": "results align with domain expectations"}
+    ]
+  }
+}
+```
+
 ### Step 9: Save Task Output
 
 Write to `mm-workspace/03_task_{id}.json`:
@@ -170,11 +218,22 @@ Write to `mm-workspace/03_task_{id}.json`:
   "execution_result": "key output summary (truncated if too long)",
   "result_interpretation": "result analysis text",
   "answer": "comprehensive answer text",
+  "verification": {
+    "passed": true,
+    "checks": [
+      {"item": "numerical_sanity", "passed": true, "note": "..."},
+      {"item": "cross_task_consistency", "passed": true, "note": "..."},
+      {"item": "completeness", "passed": true, "note": "..."},
+      {"item": "domain_meaning", "passed": true, "note": "..."}
+    ]
+  },
   "charts": ["mm-workspace/charts/task_1_fig1.png"],
   "output_files": ["mm-workspace/data/task_1_result.csv"],
   "stage": "task_complete"
 }
 ```
+
+Then commit: `cd mm-workspace && git add -A && git commit -m "feat(s3): task {id} solved"`
 
 ### Step 10: Present and Continue
 
@@ -212,6 +271,21 @@ If the current task is a sensitivity analysis / robustness testing task, follow 
 ## Parallel Execution
 
 When multiple tasks have no mutual dependencies (can run simultaneously according to the DAG), you MAY use the Agent tool to solve them in parallel. However:
+
+**Hard constraint: max 2 concurrent subagents at any time.** This limit applies across all subagent types (Critic subagents, task-solving subagents, review subagents).
+
+### Batching Strategy
+
+When N > 2 tasks can run in parallel:
+1. Split into batches of 2: `[[task_a, task_b], [task_c, task_d], ...]`
+2. Dispatch batch 1 (2 agents in parallel)
+3. Wait for both to complete
+4. Dispatch batch 2
+5. Repeat until all parallel tasks are done
+6. Proceed to dependent tasks
+
+### Rules
 - Each parallel agent works in its own context
 - Ensure no file conflicts (each task writes to its own files)
-- Wait for all parallel tasks to complete before proceeding to dependent tasks
+- Wait for all parallel tasks in a batch to complete before proceeding to dependent tasks or the next batch
+- Never dispatch more than 2 Agent tool calls simultaneously

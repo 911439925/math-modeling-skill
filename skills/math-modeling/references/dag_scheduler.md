@@ -27,7 +27,16 @@
 
 - **顺序执行**：有依赖的任务按拓扑序执行
 - **并行执行**：无依赖的任务可同时进行（利用 Agent tool 并行）
+- **并发上限**：同时运行的 subagent 不超过 2 个。当有 N > 2 个无依赖任务时，分批执行：
+  ```
+  # 示例：5 个无依赖任务
+  parallel_groups = [[task_2, task_3], [task_4, task_5]]  # 每批最多 2 个
+  for group in parallel_groups:
+      dispatch agents for group
+      wait for all agents in group to complete
+  ```
 - **状态传递**：每个任务完成后将结果写入 `mm-workspace/03_task_{id}.json`，后续任务通过读取此文件获取前置结果
+- **全局限制**：此并发上限适用于所有类型的 subagent（Critic subagent、任务求解 subagent、全局审查 subagent），任一时刻总数不超过 2
 
 ## 依赖提示生成
 

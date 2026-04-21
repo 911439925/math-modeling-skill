@@ -7,7 +7,7 @@ description: >
   Also use when the user wants to analyze a problem, build a mathematical model,
   decompose it into subtasks, and solve each subtask with code execution.
   Covers the complete workflow from problem understanding to LaTeX paper generation.
-version: 0.2.0
+version: 0.3.0
 ---
 
 # Mathematical Modeling Agent (MM-Skill)
@@ -16,14 +16,15 @@ A stage-by-stage mathematical modeling agent for all competition types.
 
 ## Overview
 
-This skill guides Claude Code through a structured 4-stage modeling pipeline:
+This skill guides Claude Code through a structured pipeline with global iteration:
 
 1. **Stage 1 - Problem Analysis**: Deep analysis with Actor-Critic self-improvement
 2. **Stage 2 - Modeling & Decomposition**: High-level modeling, task splitting, DAG scheduling
 3. **Stage 3 - Task Solving**: Per-task HMML retrieval, formula generation, code execution
-4. **Stage 4 - Paper Generation**: LaTeX source generation, compilation to PDF
+4. **Stage 3.5 - Global Review**: Independent quality review of all outputs (iterative)
+5. **Stage 4 - Paper Generation**: LaTeX source generation, compilation to PDF
 
-Stage 1 and 2 pause for user review. Stage 3 runs automatically unless errors occur. Stage 4 pauses for final review.
+Stage 1 and 2 pause for user review. Stage 3 runs automatically unless errors occur. Stage 3.5 performs global quality review with up to 3 iterations. Stage 4 pauses for final review.
 
 ## Activation
 
@@ -47,6 +48,10 @@ Before starting, verify and install dependencies:
 
 ## Workflow
 
+## Global Constraints
+
+- **Max concurrent subagents**: 2. This includes Critic subagents (improvement A) and task-solving subagents. Never dispatch more than 2 Agent tool calls simultaneously. Batch parallel tasks into groups of 2 maximum.
+
 ### Initialization
 
 1. Create the workspace directory structure:
@@ -54,13 +59,49 @@ Before starting, verify and install dependencies:
    mkdir -p mm-workspace/code mm-workspace/data mm-workspace/charts mm-workspace/05_paper/sections mm-workspace/05_paper/figures
    ```
 
-2. Read and extract the problem:
+2. Initialize git version management:
+   ```bash
+   cd mm-workspace && git init
+   ```
+   Create `.gitignore` in mm-workspace:
+   ```
+   __pycache__/
+   *.pyc
+   .ipynb_checkpoints/
+   *.aux
+   *.log
+   *.out
+   *.bbl
+   *.blg
+   *.fls
+   *.fdb_latexmk
+   *.synctex.gz
+   ```
+   Then `git add -A && git commit -m "init: workspace initialized"`
+
+3. Read and extract the problem:
    - If the user provides a file path (PDF, image, text), read it using the Read tool
    - If the user provides text directly, use it as the problem
    - Identify if there are attached dataset files
    - Save the raw problem to `mm-workspace/raw_problem.txt`
 
-3. Detect competition type if user mentions it (affects paper template and language)
+4. Detect competition type if user mentions it (affects paper template and language)
+
+### Git Commit Protocol
+
+After each stage or significant milestone, commit workspace state:
+
+| 时机 | commit message |
+|------|---------------|
+| Stage 1 完成后 | `feat(s1): problem analysis complete` |
+| Stage 2 完成后 | `feat(s2): modeling and decomposition complete` |
+| Stage 3 每个任务完成后 | `feat(s3): task {id} solved` |
+| Stage 3 全部完成（每轮迭代） | `feat(s3): all tasks solved - iteration {N}` |
+| 全局审查通过后 | `git tag review-pass-v{N}` |
+| Stage 4 完成后 | `feat(s4): paper generated` |
+| 最终定稿 | `git tag final-v{N}` |
+
+Commit command: `cd mm-workspace && git add -A && git commit -m "<message>"`
 
 ### Stage 1: Problem Analysis (invoke mm-analysis skill)
 
@@ -97,6 +138,63 @@ Task solving runs **automatically** through all tasks:
 - Solve each task following the mm-solving skill instructions
 - Display task results as they complete
 - Only pause if a task fails or user explicitly interrupts
+
+After all tasks complete, commit:
+```bash
+cd mm-workspace && git add -A && git commit -m "feat(s3): all tasks solved - iteration {N}"
+```
+
+### Stage 3.5: Global Quality Review (invoke mm-review skill)
+
+After Stage 3 completes, invoke the `mm-review` skill for global quality review.
+
+**Input**: All workspace JSON files
+**Output**: `mm-workspace/03.5_review.json`
+
+#### Iteration Logic
+
+```
+iteration = 1
+max_iterations = 3
+
+while iteration <= max_iterations:
+    # Run global review
+    invoke mm-review skill
+    read mm-workspace/03.5_review.json
+
+    if review.overall_passed == true:
+        cd mm-workspace && git tag review-pass-v{iteration}
+        break  # Review passed, proceed to Stage 4
+
+    else:
+        # Review found issues
+        Display review findings and rework_list to user
+
+        if iteration == max_iterations:
+            Ask: "已达到最大迭代次数({max_iterations})。是否接受当前结果并继续生成论文？"
+            if user accepts:
+                break
+            else:
+                Stop pipeline (user wants manual intervention)
+
+        Ask: "审查发现以下问题（第 {iteration} 轮），是否进入第 {iteration+1} 轮迭代重修？"
+
+        if user confirms:
+            cd mm-workspace && git tag "review-iteration-{iteration}-needs-work"
+            # Rework only the failed tasks
+            for each task in rework_list:
+                Re-run mm-solving for that specific task
+            cd mm-workspace && git add -A && git commit -m "feat(s3): rework iteration {iteration+1}"
+            iteration += 1
+        else:
+            break  # User accepts current results
+```
+
+**Key rules**:
+- Maximum 3 iterations total (prevents infinite loops)
+- Each iteration only reworks tasks identified in the rework_list (not all tasks)
+- Git tag marks each iteration's status for traceability
+- If user declines iteration or max reached, proceed with current results
 
 ### Stage 4: Paper Generation (invoke mm-writing skill)
 
