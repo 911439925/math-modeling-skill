@@ -7,7 +7,7 @@ description: >
   Also use when the user wants to analyze a problem, build a mathematical model,
   decompose it into subtasks, and solve each subtask with code execution.
   Covers the complete workflow from problem understanding to LaTeX paper generation.
-version: 0.4.0
+version: 0.4.1
 ---
 
 # Mathematical Modeling Agent (MM-Skill)
@@ -114,8 +114,10 @@ After initialization, invoke the `mm-analysis` skill to perform deep problem ana
 **Output**: `mm-workspace/01_analysis.json`
 
 After Stage 1 completes:
-- Present the analysis summary to the user
-- Ask: "问题分析完成，是否需要修改？确认后进入建模阶段。"
+- Present the analysis summary and Critic score to the user
+- If score >= 75: Ask "问题分析完成（得分 {score}/100），是否需要修改？确认后进入建模阶段。"
+- If 60 <= score < 75 after 3 rounds: Warn and ask to proceed or revise
+- If score < 60 after 3 rounds: Pause, present critical issues, let user decide
 - Wait for user confirmation before proceeding
 
 ### Stage 2: Modeling & Decomposition (invoke mm-modeling skill)
@@ -126,8 +128,10 @@ After user confirms Stage 1, invoke the `mm-modeling` skill.
 **Output**: `mm-workspace/02_modeling.json`
 
 After Stage 2 completes:
-- Present the modeling solution and task decomposition to the user
-- Ask: "建模方案和任务分解完成，是否需要修改？确认后开始逐任务求解。"
+- Present the modeling solution, task decomposition, and Critic score to the user
+- If score >= 75: Ask "建模方案完成（得分 {score}/100），是否需要修改？确认后开始逐任务求解。"
+- If 60 <= score < 75 after 3 rounds: Warn and ask to proceed or revise
+- If score < 60 after 3 rounds: Pause, present critical issues, let user decide
 - Wait for user confirmation before proceeding
 
 ### Stage 3: Task Solving (invoke mm-solving skill)
@@ -161,45 +165,63 @@ After Stage 3 completes, you MUST invoke the `mm-review` skill for global qualit
 ```
 iteration = 1
 max_iterations = 3
+pass_threshold = 80  # Stage 3.5 通过线
 
 while iteration <= max_iterations:
     # Run global review
     invoke mm-review skill
     read mm-workspace/03.5_review.json
+    score = review.total
 
-    if review.overall_passed == true:
+    if score >= pass_threshold:
         cd mm-workspace && git tag review-pass-v{iteration}
         break  # Review passed, proceed to Stage 4
 
-    else:
-        # Review found issues
-        Display review findings and rework_list to user
+    elif score >= 60:
+        # Improvable but not critical
+        Display review scores and rework_list to user
 
         if iteration == max_iterations:
-            Ask: "已达到最大迭代次数({max_iterations})。是否接受当前结果并继续生成论文？"
+            Ask: "已达到最大迭代次数({max_iterations})，当前得分 {score}。是否接受当前结果并继续生成论文？"
             if user accepts:
                 break
             else:
-                Stop pipeline (user wants manual intervention)
+                Stop pipeline
 
-        Ask: "审查发现以下问题（第 {iteration} 轮），是否进入第 {iteration+1} 轮迭代重修？"
+        Ask: "审查得分 {score}/{pass_threshold}（第 {iteration} 轮），是否进入第 {iteration+1} 轮迭代重修？"
 
         if user confirms:
-            cd mm-workspace && git tag "review-iteration-{iteration}-needs-work"
-            # Rework only the failed tasks
+            cd mm-workspace && git tag "review-iteration-{iteration}-score-{score}"
             for each task in rework_list:
                 Re-run mm-solving for that specific task
             cd mm-workspace && git add -A && git commit -m "feat(s3): rework iteration {iteration+1}"
             iteration += 1
         else:
-            break  # User accepts current results
+            break
+
+    else:
+        # score < 60: fundamental issues
+        Display critical failure with specific dimension scores
+
+        if iteration == max_iterations:
+            PAUSE pipeline
+            Ask: "第 {max_iterations} 轮审查得分 {score}，低于及格线 60 分。请选择：1) 提供指导后重试  2) 接受当前结果  3) 终止流水线"
+            user decides → proceed accordingly
+        else:
+            Ask: "审查得分 {score}（第 {iteration} 轮），存在基础性问题。是否进入第 {iteration+1} 轮迭代？"
+            if user confirms:
+                rework and iterate
+            else:
+                break
 ```
 
 **Key rules**:
 - Maximum 3 iterations total (prevents infinite loops)
-- Each iteration only reworks tasks identified in the rework_list (not all tasks)
-- Git tag marks each iteration's status for traceability
-- If user declines iteration or max reached, proceed with current results
+- Score >= 80: pass automatically
+- 60 <= score < 80: improvable, iterate with user consent
+- Score < 60: fundamental issues, pause for user decision
+- Each iteration only reworks tasks identified in the rework_list
+- Git tag marks each iteration's score for traceability
 
 ### Stage 4: Paper Generation (invoke mm-writing skill)
 

@@ -2,9 +2,9 @@
 name: mm-analysis
 description: >
   Stage 1 of the mathematical modeling pipeline. Performs deep problem analysis
-  using Actor-Critic self-improvement. Invoked by the math-modeling skill during
-  Stage 1. Do not invoke directly — use /math-model instead.
-version: 0.2.0
+  using Actor-Critic self-improvement with percent-based scoring. Invoked by the
+  math-modeling skill during Stage 1. Do not invoke directly — use /math-model instead.
+version: 0.4.1
 ---
 
 # Stage 1: Problem Analysis
@@ -84,11 +84,9 @@ If the problem includes data files:
    - Key statistics
    - Potential data quality issues and cleaning suggestions
 
-### Step 3: Problem Analysis (Actor-Critic, 2 rounds)
+### Step 3: Problem Analysis (Actor-Critic, 自适应 1-3 轮, 通过线 75 分)
 
-Load `references/actor_critic.md` for the Actor-Critic mechanism guide.
-
-**Round 1:**
+Load `references/actor_critic.md` for the scoring criteria.
 
 #### Actor: Generate Initial Analysis
 
@@ -103,20 +101,26 @@ Produce a deep analysis covering:
 
 Write as structured analysis: use numbered lists for assumptions, tables for variable definitions, and numbered LaTeX for key equations. Use coherent paragraphs for reasoning and discussion.
 
-#### Critic: Evaluate the Analysis (Independent Subagent)
+#### Critic: Score the Analysis (Independent Subagent)
 
 Use the Agent tool to dispatch an independent subagent for the Critic role. The subagent must NOT inherit the Actor's reasoning context — it only receives the Actor's final output.
 
 Dispatch an Agent with the following prompt structure:
 ```
-你是一名严格的数学建模评审专家（Critic 角色）。请对以下问题分析进行批评。
+你是一名严格的数学建模评审专家（Critic 角色）。请对以下问题分析按维度量化评分。
 
-## 审查标准
-- 深度：是否超越表面观察？假设和隐含约束是否充分考虑？
-- 新颖性：是否提供了新见解，还是复述已知方法？
-- 严谨性：逻辑是否一致？数学表述是否精确？
-- 上下文意识：是否考虑了实际约束和现实世界的影响？
-- 数据意识：是否充分利用了可用数据？数据处理是否合理？
+## 评分标准（百分制，加权求和）
+
+| 维度 | 权重 | 60分线 | 满分要求 |
+|------|------|--------|---------|
+| 需求完整性 | 25 | 所有显式子问题均已识别 | 显式+隐式需求全部挖掘 |
+| 深度洞察 | 25 | 超越表面，识别隐含约束 | 发现非常规难点和跨问题关联 |
+| 数据感知 | 20 | 数据已加载、缺失值/异常值已报告 | 数据特征深度分析+清洗方案 |
+| 假设识别 | 15 | 关键假设已列出 | 假设合理性论证充分 |
+| 结构清晰度 | 15 | 分析有结构、可读 | 建模导向明确，直接指导下一阶段 |
+
+通过线：75 分
+硬性否决：需求完整性 < 10 分 → 总分封顶 59
 
 ## 问题背景
 {Insert problem text summary, 1-2 paragraphs}
@@ -125,24 +129,34 @@ Dispatch an Agent with the following prompt structure:
 {Insert Actor's complete analysis output}
 
 ## 输出要求
-1. 逐一指出具体问题（附位置引用）
-2. 每个问题给出改进方向（指出方向，不提供完整方案）
-3. 最后给出总体评价：是否存在重大问题需要追加一轮
-4. 直接输出批评内容，不要有多余的寒暄
+严格按以下 JSON 格式输出，不要有多余文字：
+```json
+{
+  "scores": {
+    "requirement_completeness": {"score": 0-100, "note": "具体说明"},
+    "depth_insight": {"score": 0-100, "note": "具体说明"},
+    "data_awareness": {"score": 0-100, "note": "具体说明"},
+    "assumption_identification": {"score": 0-100, "note": "具体说明"},
+    "structure_clarity": {"score": 0-100, "note": "具体说明"}
+  },
+  "total": 加权总分,
+  "improvement_directions": ["具体改进方向1", "改进方向2"],
+  "fatal_issue": null 或 "具体说明（仅当触发硬性否决时填写）"
+}
+```
 ```
 
-Receive the Critic feedback and proceed to Improvement.
+Receive the Critic scores and process:
+- If `total >= 75`: Accept the analysis, proceed to Step 4
+- If `total < 75` and round < 3: Run Improvement, then repeat Actor → Critic
+- If `total < 60` and round == 3: Pause pipeline, present to user for decision
 
 #### Improvement: Refine the Analysis
 
-Based on the critique, produce an improved version:
+Based on Critic's `improvement_directions`, produce an improved version:
 - Address all identified weaknesses
 - Do not reference the previous version or its flaws
 - Write as a complete, standalone analysis
-
-**Round 2:**
-
-Repeat the Critic → Improvement cycle once more.
 
 ### Step 4: Save Output
 

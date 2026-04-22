@@ -6,7 +6,7 @@ description: >
   execute Python code, and interpret results. Each task runs in a subagent to minimize
   main session context usage. Invoked by the math-modeling skill during Stage 3.
   Do not invoke directly.
-version: 0.4.0
+version: 0.4.1
 ---
 
 # Stage 3: Task Solving (Subagent-Dispatched)
@@ -75,11 +75,22 @@ Task ID: {id}
 读取 reference 文件 references/hmml_index.md，根据任务类型加载相关领域文件（最多2个）。
 选出 top-6 最相关方法，检查 hmml_index.md 中的"常见方法组合模式"。
 
-### 2. 公式生成（Actor-Critic, 1轮）
+### 2. 公式生成（Actor-Critic, 自适应 1-3 轮, 通过线 80 分）
 读取 references/actor_critic.md。
 - Actor: 生成数学公式（变量定义、方程、假设、边界条件）
-- Critic（内联批评）: 检查公式正确性、创新性、可计算性、完整性
-- Improvement: 改进公式
+- Critic（内联批评）: 按以下维度百分制评分：
+
+| 维度 | 权重 | 60分线 |
+|------|------|--------|
+| 代码执行 | 25 | 代码成功运行并输出结果 |
+| 结果合理性 | 25 | 数值在合理范围 |
+| 完整性 | 20 | 所有子问题已回答 |
+| 方法质量 | 15 | 方法合适且运用正确 |
+| 图表产出 | 15 | 需要可视化的部分已生成 |
+
+通过线：80 分。代码执行 < 10 分则总分封顶 59。
+- Improvement: 根据 improvement_directions 改进
+- 自适应迭代：总分 ≥ 80 通过；< 80 且轮次 < 3 则迭代；第 3 轮 < 60 则标记失败
 
 ### 3. 建模过程详述
 基于公式写出详细建模步骤。

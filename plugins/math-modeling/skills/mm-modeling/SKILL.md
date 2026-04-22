@@ -2,9 +2,10 @@
 name: mm-modeling
 description: >
   Stage 2 of the mathematical modeling pipeline. Performs high-level modeling,
-  problem decomposition into subtasks, and DAG dependency analysis. Invoked by
-  the math-modeling skill during Stage 2. Do not invoke directly.
-version: 0.2.0
+  problem decomposition into subtasks, and DAG dependency analysis. Uses
+  Actor-Critic with percent-based scoring. Invoked by the math-modeling skill
+  during Stage 2. Do not invoke directly.
+version: 0.4.1
 ---
 
 # Stage 2: Modeling & Decomposition
@@ -19,9 +20,9 @@ Read `mm-workspace/01_analysis.json` for the problem analysis results.
 
 ## Process
 
-### Step 1: High-Level Modeling (Actor-Critic, 2 rounds)
+### Step 1: High-Level Modeling (Actor-Critic, 自适应 1-3 轮, 通过线 75 分)
 
-Load `references/actor_critic.md` for the Actor-Critic mechanism guide.
+Load `references/actor_critic.md` for the scoring criteria.
 
 #### Actor: Generate Modeling Solution
 
@@ -36,20 +37,26 @@ Design a complete modeling solution covering:
 
 Write as structured modeling solution: use numbered lists for assumptions, tables for variable definitions, and numbered LaTeX equations. Use coherent paragraphs for reasoning.
 
-#### Critic: Evaluate the Modeling Solution (Independent Subagent)
+#### Critic: Score the Modeling Solution (Independent Subagent)
 
 Use the Agent tool to dispatch an independent subagent for the Critic role. The subagent must NOT inherit the Actor's reasoning context — it only receives the Actor's final output.
 
 Dispatch an Agent with the following prompt structure:
 ```
-你是一名严格的数学建模评审专家（Critic 角色）。请对以下建模方案进行批评。
+你是一名严格的数学建模评审专家（Critic 角色）。请对以下建模方案按维度量化评分。
 
-## 审查标准
-- 假设合理性：假设是否有充分的理由支撑？
-- 技术匹配度：所选方法是否匹配问题类型？
-- 数据兼容性：可用数据能否支持该模型？
-- 可计算性：该模型在实际中是否可解？
-- 完整性：是否覆盖了所有问题要求？
+## 评分标准（百分制，加权求和）
+
+| 维度 | 权重 | 60分线 | 满分要求 |
+|------|------|--------|---------|
+| 可行性 | 30 | 方案可用现有工具和数据实现 | 实现路径清晰，无技术盲区 |
+| 方法匹配度 | 20 | 方法与问题类型对应 | 方法选择有对比论证 |
+| 任务分解 | 20 | 任务覆盖所有子问题，无重叠 | DAG依赖合理，粒度适中 |
+| 假设体系 | 15 | 假设之间不矛盾 | 假设体系自洽且有论证 |
+| 创新性 | 15 | 有合理的模型设计 | 有原创性贡献 |
+
+通过线：75 分
+硬性否决：可行性 < 15 分 → 总分封顶 59
 
 ## 问题背景
 {Insert brief problem description, 1-2 paragraphs}
@@ -58,19 +65,31 @@ Dispatch an Agent with the following prompt structure:
 {Insert Actor's complete modeling solution}
 
 ## 输出要求
-1. 逐一指出具体问题（附位置引用）
-2. 每个问题给出改进方向（指出方向，不提供完整方案）
-3. 最后给出总体评价：是否存在重大问题需要追加一轮
-4. 直接输出批评内容，不要有多余的寒暄
+严格按以下 JSON 格式输出，不要有多余文字：
+```json
+{
+  "scores": {
+    "feasibility": {"score": 0-100, "note": "具体说明"},
+    "method_match": {"score": 0-100, "note": "具体说明"},
+    "task_decomposition": {"score": 0-100, "note": "具体说明"},
+    "assumption_system": {"score": 0-100, "note": "具体说明"},
+    "innovation": {"score": 0-100, "note": "具体说明"}
+  },
+  "total": 加权总分,
+  "improvement_directions": ["具体改进方向1", "改进方向2"],
+  "fatal_issue": null 或 "具体说明（仅当触发硬性否决时填写）"
+}
+```
 ```
 
-Receive the Critic feedback and proceed to Improvement.
+Receive the Critic scores and process:
+- If `total >= 75`: Accept the modeling solution, proceed to Step 2
+- If `total < 75` and round < 3: Run Improvement, then repeat Actor → Critic
+- If `total < 60` and round == 3: Pause pipeline, present to user for decision
 
 #### Improvement: Refine the Modeling Solution
 
-Produce an improved version addressing all critiques. Complete standalone document.
-
-**Round 2:** Repeat Critic → Improvement once more.
+Produce an improved version addressing all `improvement_directions`. Complete standalone document.
 
 ### Step 2: Problem Decomposition
 
