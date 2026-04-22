@@ -5,7 +5,7 @@ description: >
   from all workspace outputs, compiles to PDF. Supports multiple competition
   templates. Invoked by the math-modeling skill during Stage 4.
   Do not invoke directly.
-version: 0.4.2
+version: 0.4.3
 ---
 
 # Stage 4: Paper Generation (LaTeX → PDF)

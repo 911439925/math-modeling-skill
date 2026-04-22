@@ -6,7 +6,7 @@ description: >
   execute Python code, and interpret results. Each task runs in a subagent to minimize
   main session context usage. Invoked by the math-modeling skill during Stage 3.
   Do not invoke directly.
-version: 0.4.2
+version: 0.4.3
 ---
 
 # Stage 3: Task Solving (Subagent-Dispatched)
@@ -149,7 +149,7 @@ Task ID: {id}
 }
 ```
 
-然后执行: cd mm-workspace && git add -A && git commit -m "feat(s3): task {id} solved"
+**重要：子代理不执行 git commit。** git 操作由主代理在验证完成后执行。子代理只负责保存 JSON 和代码文件。
 
 ## 特殊情况：灵敏度分析
 

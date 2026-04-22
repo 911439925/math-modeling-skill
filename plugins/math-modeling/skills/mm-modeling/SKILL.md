@@ -5,7 +5,7 @@ description: >
   problem decomposition into subtasks, and DAG dependency analysis. Uses
   Actor-Critic with percent-based scoring. Invoked by the math-modeling skill
   during Stage 2. Do not invoke directly.
-version: 0.4.2
+version: 0.4.3
 ---
 
 # Stage 2: Modeling & Decomposition

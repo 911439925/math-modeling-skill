@@ -7,7 +7,7 @@ description: >
   Also use when the user wants to analyze a problem, build a mathematical model,
   decompose it into subtasks, and solve each subtask with code execution.
   Covers the complete workflow from problem understanding to LaTeX paper generation.
-version: 0.4.2
+version: 0.4.3
 ---
 
 # Mathematical Modeling Agent (MM-Skill)
@@ -53,7 +53,7 @@ Before starting, verify and install dependencies:
 - **Max concurrent subagents**: 2. This includes Critic subagents (improvement A) and task-solving subagents. Never dispatch more than 2 Agent tool calls simultaneously. Batch parallel tasks into groups of 2 maximum.
 - **Stage 3.5 (Global Review) is MANDATORY and MUST NOT be skipped.** After Stage 3 completes, you MUST invoke mm-review before proceeding to Stage 4. There are NO exceptions. Even if you think the results are good, the independent review must run. Skipping Stage 3.5 to save time is a pipeline violation.
 - **Task solving via subagents**: All Stage 3 tasks must be dispatched to subagents to minimize main session context consumption. The main agent must not perform detailed solving work inline.
-- **Independent verification per task**: After each task subagent completes, dispatch an independent verification subagent before proceeding to the next task.
+- **Independent verification per task**: After each task subagent completes, dispatch an independent verification subagent before proceeding to the next task. **This is a mandatory gate, not an optional step.** You MUST NOT dispatch the next task until the current task's verification is complete. Violating this is the same severity as skipping Stage 3.5.
 
 ### Initialization
 
@@ -141,10 +141,27 @@ After user confirms Stage 2, invoke the `mm-solving` skill for each task in DAG 
 **Input**: `mm-workspace/01_analysis.json` + `mm-workspace/02_modeling.json`
 **Output**: `mm-workspace/03_task_{id}.json` for each task
 
-Task solving runs **automatically** through all tasks:
-- Solve each task following the mm-solving skill instructions
-- Display task results as they complete
-- Only pause if a task fails or user explicitly interrupts
+#### Per-Task Execution Gate (MANDATORY)
+
+For each task, you MUST follow these steps **in strict order**. Do NOT skip any step or reorder them:
+
+```
+for each task in dag_order:
+    1. DISPATCH task subagent (invoke mm-solving)
+    2. WAIT for subagent to complete
+    3. COLLECT: Read 03_task_{id}.json, verify execution_success
+    4. VALIDATE: Run schema validation (mm-solving Step 3a.5)
+    5. VERIFY: Dispatch independent verification subagent (mm-solving Step 3b)
+    6. WAIT for verification subagent to complete
+    7. PROCESS: Review verification results, update JSON (mm-solving Step 3c)
+    8. COMMIT: git add -A && git commit -m "feat(s3): task {id} solved"
+    9. CHECK: Run cross-task consistency quick check (see below)
+    → ONLY THEN proceed to next task
+```
+
+**DO NOT** dispatch the next task until steps 1-9 are complete for the current task.
+**DO NOT** parallelize task solving with verification of a previous task.
+**DO NOT** skip the verification subagent (Step 5) to save time.
 
 #### 跨任务一致性快速检查（每个 Task 完成后主代理执行）
 
