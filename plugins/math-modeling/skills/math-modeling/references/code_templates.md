@@ -80,6 +80,40 @@ print(f"\n结果已保存到 mm-workspace/data/task_{id}_result.csv")
 print(result)
 
 # ============================================================
+# 4.5 模型质量报告（回归/分类/优化任务必填）
+# ============================================================
+quality_report = {
+    'task_id': {id},
+    'model_type': 'regression',  # regression / classification / optimization
+    'primary_metric': {
+        'name': 'R²',
+        'value': round(float(r2_score), 4)
+    },
+    'baseline': {
+        'name': 'mean predictor',
+        'value': round(float(baseline_score), 4)
+    },
+    'improvement_over_baseline': round(float((r2_score - baseline_score) / abs(baseline_score) * 100), 2) if baseline_score != 0 else None,
+    'passes_quality_threshold': r2_score >= 0.3,
+    'warning': None if r2_score >= 0.3
+               else f'R²={r2_score:.3f} < 0.3, 弱拟合，下游结论需降级表述为"关联性"而非"预测性"'
+}
+print(f"\n{'='*60}")
+print("模型质量报告:")
+print(json.dumps(quality_report, indent=2, ensure_ascii=False))
+print(f"{'='*60}")
+
+# 对于优化任务，额外报告：
+if is_optimization:
+    opt_report = {
+        'optimal_at_boundary': False,  # 检查最优点是否在参数边界上
+        'parameter_range_used': str(param_bounds),
+        'degenerate_check': 'PASS'  # 检查是否退化为平凡解
+    }
+    print("优化质量报告:")
+    print(json.dumps(opt_report, indent=2, ensure_ascii=False))
+
+# ============================================================
 # 5. 可视化（如有需要）
 # ============================================================
 fig, ax = plt.subplots(figsize=FIG_SIZE)

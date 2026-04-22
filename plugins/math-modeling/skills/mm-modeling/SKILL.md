@@ -5,7 +5,7 @@ description: >
   problem decomposition into subtasks, and DAG dependency analysis. Uses
   Actor-Critic with percent-based scoring. Invoked by the math-modeling skill
   during Stage 2. Do not invoke directly.
-version: 0.4.1
+version: 0.4.2
 ---
 
 # Stage 2: Modeling & Decomposition
@@ -33,6 +33,15 @@ Design a complete modeling solution covering:
 - **Key equations**: Governing equations and relationships
 - **Solution strategy**: Analytical, numerical, or simulation approach
 - **Validation plan**: How to verify the model's correctness
+- **Validation independence declaration**: For each model, explicitly state:
+  1. Whether the data/information used for validation is independent from estimation
+  2. If not independent (e.g., constraint satisfaction methods), what additional means ensure validation effectiveness (held-out test set, different data sources, different evaluation metrics)
+  3. Constraint satisfaction methods must use information different from constraint conditions for validation
+- **Fit quality warning thresholds**: For each estimation model, preset:
+  - Which metrics below what threshold require switching to alternatives
+  - Example: R² < 0.3 → switch to non-parametric methods or add features
+  - Example: optimization objective difference between alternatives < 5% → need additional criteria
+  - These thresholds will be written into `02_modeling.json` for Task solving stage reference
 - **Innovation**: Novel formulations or extensions
 
 Write as structured modeling solution: use numbered lists for assumptions, tables for variable definitions, and numbered LaTeX equations. Use coherent paragraphs for reasoning.
@@ -49,14 +58,15 @@ Dispatch an Agent with the following prompt structure:
 
 | 维度 | 权重 | 60分线 | 满分要求 |
 |------|------|--------|---------|
-| 可行性 | 30 | 方案可用现有工具和数据实现 | 实现路径清晰，无技术盲区 |
+| 可行性 | 20 | 方案可用现有工具和数据实现 | 实现路径清晰，无技术盲区 |
 | 方法匹配度 | 20 | 方法与问题类型对应 | 方法选择有对比论证 |
 | 任务分解 | 20 | 任务覆盖所有子问题，无重叠 | DAG依赖合理，粒度适中 |
+| 验证有效性 | 10 | 验证方案不含循环论证 | 验证方法与估计方法独立 |
 | 假设体系 | 15 | 假设之间不矛盾 | 假设体系自洽且有论证 |
 | 创新性 | 15 | 有合理的模型设计 | 有原创性贡献 |
 
 通过线：75 分
-硬性否决：可行性 < 15 分 → 总分封顶 59
+硬性否决：可行性 < 15 分 → 总分封顶 59。验证有效性 < 10 分 → 总分封顶 59。
 
 ## 问题背景
 {Insert brief problem description, 1-2 paragraphs}
@@ -72,6 +82,7 @@ Dispatch an Agent with the following prompt structure:
     "feasibility": {"score": 0-100, "note": "具体说明"},
     "method_match": {"score": 0-100, "note": "具体说明"},
     "task_decomposition": {"score": 0-100, "note": "具体说明"},
+    "validation_effectiveness": {"score": 0-100, "note": "具体说明"},
     "assumption_system": {"score": 0-100, "note": "具体说明"},
     "innovation": {"score": 0-100, "note": "具体说明"}
   },

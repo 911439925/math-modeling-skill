@@ -7,7 +7,7 @@ description: >
   Also use when the user wants to analyze a problem, build a mathematical model,
   decompose it into subtasks, and solve each subtask with code execution.
   Covers the complete workflow from problem understanding to LaTeX paper generation.
-version: 0.4.1
+version: 0.4.2
 ---
 
 # Mathematical Modeling Agent (MM-Skill)
@@ -145,6 +145,20 @@ Task solving runs **automatically** through all tasks:
 - Solve each task following the mm-solving skill instructions
 - Display task results as they complete
 - Only pause if a task fails or user explicitly interrupts
+
+#### 跨任务一致性快速检查（每个 Task 完成后主代理执行）
+
+每个 Task 子代理返回后，主代理在 collect 阶段执行以下快速检查：
+
+1. **JSON 格式完整性**: 校验 `03_task_{id}.json` 必填字段（见 mm-solving Step 3a.5）
+2. **指标名称冲突**: 提取当前 Task 所有量化指标名称，与已完成 Task 比较
+   - 同名但数值量级差异 > 10x → 标记警告
+   - 同名但含义不同 → 标记警告
+3. **数值传递链**: 如果当前 Task 依赖前置 Task 的数值输出
+   - 验证当前 Task 使用的输入值 ≈ 前置 Task 报告的输出值
+   - 偏差 > 5% → 标记警告
+
+检查结果不阻塞流程，但显示为警告信息。问题留给 Stage 3.5 全局审查深入处理。
 
 After all tasks complete, commit:
 ```bash

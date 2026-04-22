@@ -6,7 +6,7 @@ description: >
   execute Python code, and interpret results. Each task runs in a subagent to minimize
   main session context usage. Invoked by the math-modeling skill during Stage 3.
   Do not invoke directly.
-version: 0.4.1
+version: 0.4.2
 ---
 
 # Stage 3: Task Solving (Subagent-Dispatched)
@@ -106,11 +106,14 @@ Task ID: {id}
 - 生成完整回答
 
 ### 6. 结果验证
-执行以下 4 项检查：
+执行以下检查：
 - 数值合理性：概率∈[0,1]、价格为正、无量级错误
 - 跨任务一致性：与前置任务的结果和格式是否匹配
 - 完整性：是否回答了该任务的所有子问题
 - 领域含义：结果是否符合业务/物理常识
+- 循环论证：验证所用信息是否与估计信息本质重叠
+- 拟合质量：回归任务 R² < 0.3 时需在结果中标注警告
+- 退化检测：优化参数是否退化为平凡解
 
 如果验证不通过，尝试修复一次。
 
@@ -134,7 +137,10 @@ Task ID: {id}
       {"item": "numerical_sanity", "passed": true, "note": "..."},
       {"item": "cross_task_consistency", "passed": true, "note": "..."},
       {"item": "completeness", "passed": true, "note": "..."},
-      {"item": "domain_meaning", "passed": true, "note": "..."}
+      {"item": "domain_meaning", "passed": true, "note": "..."},
+      {"item": "circular_reasoning", "passed": true, "note": "..."},
+      {"item": "model_fit_quality", "passed": true, "note": "..."},
+      {"item": "optimization_degeneracy", "passed": true, "note": "..."}
     ]
   },
   "charts": ["mm-workspace/charts/task_{id}_fig1.png"],
@@ -147,11 +153,27 @@ Task ID: {id}
 
 ## 特殊情况：灵敏度分析
 
-如果当前任务是灵敏度分析/鲁棒性检验，使用以下适配流程：
-1. 读取所有前置任务输出，识别核心模型参数和假设
-2. 设计灵敏度测试：参数扰动(±5%,±10%,±20%)、假设变化、数据噪声
-3. 编写灵敏度分析代码（扰动循环 + 对比 + 灵敏度指标 + 可视化）
-4. 解读结果：哪些参数/假设对模型最敏感
+如果当前任务是灵敏度分析/鲁棒性检验，必须覆盖两个层次：
+
+### 层次 1: 核心估计模型鲁棒性
+对主要估计模型（如粉丝投票估计、参数拟合等）的参数扰动：
+- 关键参数 ±10% 扰动，观察输出变化幅度
+- 报告弹性系数：参数变化 1% → 结果变化 X%
+- 识别最敏感的参数和假设
+- 检验估计结果本身的稳定性
+
+### 层次 2: 最终系统/结论鲁棒性
+对最终推荐方案（如公平投票系统）的参数扰动：
+- 系统参数的灵敏度分析
+- 假设变化测试（方法变更边界、噪声注入等）
+- 交叉验证（留一法等）
+
+**不允许只做层次 2 不做层次 1。两个层次都是必需的。**
+
+### 输出要求
+- 灵敏度龙卷风图（tornado plot）
+- 交叉验证准确率按赛季/折的图表
+- 明确结论：哪些参数/假设对最终结论影响最大
 
 输出中增加 `"is_sensitivity_analysis": true`
 
@@ -169,6 +191,27 @@ After each subagent completes:
 **3a. Quick Check**
 1. Read `mm-workspace/03_task_{id}.json` to verify it was saved correctly
 2. Check `execution_success` is true and `verification.passed` is true
+
+**3a.5. Output Schema Validation**
+
+Read `mm-workspace/03_task_{id}.json` and validate required fields:
+
+| Field | Type | Requirement |
+|-------|------|-------------|
+| task_id | int | Must equal current task ID |
+| execution_success | bool | Must exist |
+| stage | string | Must be "task_complete" |
+| verification.passed | bool | Must exist |
+| verification.checks | array | Length >= 4 |
+| answer | string | Length > 50 characters |
+| charts | array | Must exist (can be empty) |
+| result_interpretation | string | Must exist |
+| code_path | string | Must point to an existing file |
+
+If fields are missing:
+1. Attempt to extract from subagent output and backfill
+2. If unresolvable, mark `"_schema_incomplete": true` in the file
+3. Log a warning for the user
 
 **3b. Independent Verification Subagent**
 
@@ -202,6 +245,11 @@ Task ID: {id}
 3. **完整性**: 任务描述中的每个子问题是否都有具体回答？要求的输出文件是否都生成了？
 4. **领域含义**: 结果是否符合业务/物理常识？
 5. **图表质量**: 如果生成了图表，是否清晰展示了关键结果？轴标签、图例是否完整？
+6. **循环论证检测**: 验证方法是否与估计方法本质相同？验证所用的信息是否已隐含在估计过程中？典型案例：用约束满足估计排名 → 再用排名准确率验证 → 天然 100%，属同义反复。如果检测到循环论证，severity 直接标记为 "major"。
+7. **模型拟合质量评估**: 回归任务 R² < 0.3 为弱拟合（警告），R² < 0.1 为严重问题；分类任务准确率低于多数类基线为严重问题。弱拟合不等于失败，但需确认后续结论已做降级表述。
+8. **优化结果退化检测**: 最优参数是否退化到退化解？最优点是否在搜索空间的极端位置？参数是否触及 clip 边界？典型案例：权重函数 λ→1.0 退化为纯评委系统。如果检测到退化，建议调整搜索空间或增加约束。
+9. **指标定义一致性**: 跨任务使用的同名指标是否定义相同？典型案例："ranking_accuracy" 在 Task 2 中为约束满足率，在 Task 6 中为回归预测率。同名指标数值量级差异 > 10x 则标记为可疑。
+10. **方法选择-实际使用一致性**: BIC/AIC 选出的最佳方法是否确实是最终报告和推荐中使用的方法？如果 BIC 选择了方法 A 但最终推荐使用方法 B，需要检查是否有合理理由。无理由的切换应标记为 "major"。
 
 ## 输出格式
 
@@ -215,12 +263,16 @@ Task ID: {id}
       {"item": "cross_task_consistency", "passed": true/false, "note": "具体说明"},
       {"item": "completeness", "passed": true/false, "note": "具体说明"},
       {"item": "domain_meaning", "passed": true/false, "note": "具体说明"},
-      {"item": "chart_quality", "passed": true/false, "note": "具体说明"}
+      {"item": "chart_quality", "passed": true/false, "note": "具体说明"},
+      {"item": "circular_reasoning", "passed": true/false, "note": "具体说明"},
+      {"item": "model_fit_quality", "passed": true/false, "note": "具体说明"},
+      {"item": "optimization_degeneracy", "passed": true/false, "note": "具体说明"},
+      {"item": "metric_definition_consistency", "passed": true/false, "note": "具体说明"},
+      {"item": "method_selection_consistency", "passed": true/false, "note": "具体说明"}
     ],
     "issues_found": ["问题1", "问题2"],
     "severity": "none" | "minor" | "major"
   }
-}
 ```
 ```
 

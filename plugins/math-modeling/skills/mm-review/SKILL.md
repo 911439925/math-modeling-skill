@@ -6,7 +6,7 @@ description: >
   Checks cross-task consistency, numerical credibility, requirement coverage,
   model coherence, evidence sufficiency, and chart/figure quality.
   Invoked by the math-modeling skill after Stage 3. Do not invoke directly.
-version: 0.4.1
+version: 0.4.2
 ---
 
 # Stage 3.5: Global Quality Review
@@ -53,6 +53,22 @@ Use the Agent tool to dispatch a general-purpose subagent with the following pro
 ```
 你是一名资深的数学建模竞赛评审专家。请对以下完整的建模结果进行全局质量审查，按维度量化评分。
 
+### 评分校准基准（请严格遵守）
+
+| 分数段 | 含义 |
+|--------|------|
+| 90-100 | 足以投稿高水平期刊，无明显方法论缺陷 |
+| 80-89 | 竞赛获奖水平，有微小瑕疵但不影响核心结论可信度 |
+| 70-79 | 方法基本正确但有关键薄弱环节（如弱拟合、验证不充分） |
+| 60-69 | 有明显方法论缺陷或数值错误 |
+| <60 | 存在致命逻辑错误（如循环论证、自相矛盾） |
+
+**重要提醒**：
+- "代码跑通"是最基本要求，不构成任何维度的加分项
+- 不要因为工作量或图表数量多而给出高分
+- 重点关注方法论严谨性和结论可信度
+- 如果发现循环论证或拟合质量差，相关维度应直接降至及格线以下
+
 ## 赛题原文
 {Insert problem text from 01_analysis.json}
 
@@ -96,12 +112,17 @@ Use the Agent tool to dispatch a general-purpose subagent with the following pro
 - Task 1 得出"A 方案最优"，Task 3 排序中 A 排第二？
 - Task 1 输出的数值范围与 Task 2 输入假设不匹配？
 - 不同任务对同一变量的定义或取值不一致？
+- **方法选择-使用一致性**: BIC/AIC 选出的最佳方法是否确实是最终报告和推荐中使用的方法？
+- **指标定义一致性**: 跨任务使用的同名指标是否定义相同？同名指标数值量级差异 > 10x 是否有合理解释？
+- **数值传递链**: Task A 输出的数值 → Task B 输入假设是否匹配？
 
 #### 2. 数值可信度（Numerical Credibility）
 - 量级错误（如人口 10^15）？
 - 符号错误（如成本为负）？
 - 百分比/概率超出 [0,1]？
 - 关键参数是否有数据支撑？
+- **模型拟合质量报告**: 核心估计任务的 R²/准确率/AUC 等指标是否在合理范围？R² < 0.3 需扣分，即使代码运行正确。准确率接近随机基线需扣分。
+- **循环论证扫描**: 逐 Task 检查验证所用的信息是否与估计所用的信息本质重叠。约束满足→排名准确率：天然 100%，不算有效验证。检测到循环论证时，该维度不得高于 50 分。
 
 #### 3. 需求覆盖度（Requirement Coverage）
 - 对照赛题原文逐条检查

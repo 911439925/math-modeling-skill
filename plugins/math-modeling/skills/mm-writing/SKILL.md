@@ -5,7 +5,7 @@ description: >
   from all workspace outputs, compiles to PDF. Supports multiple competition
   templates. Invoked by the math-modeling skill during Stage 4.
   Do not invoke directly.
-version: 0.2.0
+version: 0.4.2
 ---
 
 # Stage 4: Paper Generation (LaTeX → PDF)
@@ -127,6 +127,20 @@ Write the complete paper to `mm-workspace/05_paper/main.tex`:
 - Ensure all `\ref{}` and `\label{}` are consistent
 - Ensure all figures are referenced
 - Write BibTeX file to `mm-workspace/05_paper/refs.bib` (if applicable)
+
+### Step 5.5: Reference Richness Check
+
+After assembling the paper, count the number of references:
+- MCM/ICM papers: minimum 15 references recommended
+- CUMCM papers: minimum 10 references recommended
+
+If insufficient, supplement from these sources:
+1. Standard references for methods in the HMML method index
+2. Original papers for methods used (e.g., Ridge regression → Hoerl & Kennard 1970)
+3. Survey papers for the data domain
+4. Textbook references for modeling approaches
+
+After supplementing, update `refs.bib` (if applicable) or the `thebibliography` environment.
 
 Then commit: `cd mm-workspace && git add -A && git commit -m "feat(s4): paper generated"`
 
