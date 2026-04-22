@@ -3,9 +3,10 @@ name: mm-review
 description: >
   Stage 3.5 of the mathematical modeling pipeline. Performs global quality review
   of all task outputs using an independent subagent. Checks cross-task consistency,
-  numerical credibility, requirement coverage, model coherence, and evidence sufficiency.
-  Invoked by the math-modeling skill after Stage 3. Do not invoke directly.
-version: 0.3.0
+  numerical credibility, requirement coverage, model coherence, evidence sufficiency,
+  and chart/figure quality. Invoked by the math-modeling skill after Stage 3.
+  Do not invoke directly.
+version: 0.4.0
 ---
 
 # Stage 3.5: Global Quality Review
@@ -52,9 +53,14 @@ Use the Agent tool to dispatch a general-purpose subagent with the following pro
   - task_id, description
   - execution_success
   - verification.passed and checks summary
+  - independent_verification.passed and severity (if exists)
   - result_interpretation (key findings)
   - answer (main conclusions)
+  - charts: list of generated chart files
 }
+
+## 生成的图表文件
+{List all files in mm-workspace/charts/ directory}
 
 ## 审查维度（每项给出 Pass / Fail + 具体说明）
 
@@ -89,6 +95,16 @@ Use the Agent tool to dispatch a general-purpose subagent with the following pro
 - 图表是否清晰展示关键结果
 - 灵敏度分析是否充分
 
+### 6. 图表质量（Chart & Figure Quality）
+所有生成的图表是否达到论文发表水平？
+- 是否存在空白图片、占位符、或生成失败的图表
+- 轴标签、标题、图例是否完整且准确
+- 配色是否清晰可区分（黑白打印也可辨识）
+- 图表类型是否适合展示对应数据（如：分类比较用柱状图、趋势用折线图、分布用热力图）
+- 每张图表是否有明确的结论性标题（不只是"结果"）
+- 图表分辨率是否足够（非模糊截图）
+- 赛题要求的图表是否都已生成
+
 ## 输出格式
 
 ```json
@@ -98,7 +114,8 @@ Use the Agent tool to dispatch a general-purpose subagent with the following pro
     {"name": "numerical_credibility", "passed": true/false, "details": "具体说明"},
     {"name": "requirement_coverage", "passed": true/false, "details": "具体说明"},
     {"name": "model_coherence", "passed": true/false, "details": "具体说明"},
-    {"name": "evidence_sufficiency", "passed": true/false, "details": "具体说明"}
+    {"name": "evidence_sufficiency", "passed": true/false, "details": "具体说明"},
+    {"name": "chart_figure_quality", "passed": true/false, "details": "具体说明"}
   ],
   "overall_passed": true/false,
   "rework_list": [
@@ -142,7 +159,8 @@ Write to `mm-workspace/03.5_review.json`:
     {"name": "numerical_credibility", "passed": true, "details": "..."},
     {"name": "requirement_coverage", "passed": true, "details": "..."},
     {"name": "model_coherence", "passed": true, "details": "..."},
-    {"name": "evidence_sufficiency", "passed": true, "details": "..."}
+    {"name": "evidence_sufficiency", "passed": true, "details": "..."},
+    {"name": "chart_figure_quality", "passed": true, "details": "..."}
   ],
   "rework_list": [],
   "summary": "review summary text",

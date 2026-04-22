@@ -7,7 +7,7 @@ description: >
   Also use when the user wants to analyze a problem, build a mathematical model,
   decompose it into subtasks, and solve each subtask with code execution.
   Covers the complete workflow from problem understanding to LaTeX paper generation.
-version: 0.3.0
+version: 0.4.0
 ---
 
 # Mathematical Modeling Agent (MM-Skill)
@@ -51,6 +51,9 @@ Before starting, verify and install dependencies:
 ## Global Constraints
 
 - **Max concurrent subagents**: 2. This includes Critic subagents (improvement A) and task-solving subagents. Never dispatch more than 2 Agent tool calls simultaneously. Batch parallel tasks into groups of 2 maximum.
+- **Stage 3.5 (Global Review) is MANDATORY and MUST NOT be skipped.** After Stage 3 completes, you MUST invoke mm-review before proceeding to Stage 4. There are NO exceptions. Even if you think the results are good, the independent review must run. Skipping Stage 3.5 to save time is a pipeline violation.
+- **Task solving via subagents**: All Stage 3 tasks must be dispatched to subagents to minimize main session context consumption. The main agent must not perform detailed solving work inline.
+- **Independent verification per task**: After each task subagent completes, dispatch an independent verification subagent before proceeding to the next task.
 
 ### Initialization
 
@@ -146,7 +149,9 @@ cd mm-workspace && git add -A && git commit -m "feat(s3): all tasks solved - ite
 
 ### Stage 3.5: Global Quality Review (invoke mm-review skill)
 
-After Stage 3 completes, invoke the `mm-review` skill for global quality review.
+**This stage is MANDATORY. Do NOT skip it. Do NOT go directly to Stage 4.**
+
+After Stage 3 completes, you MUST invoke the `mm-review` skill for global quality review. This is non-negotiable — the independent review catches issues that the solving process cannot self-detect.
 
 **Input**: All workspace JSON files
 **Output**: `mm-workspace/03.5_review.json`
@@ -198,7 +203,9 @@ while iteration <= max_iterations:
 
 ### Stage 4: Paper Generation (invoke mm-writing skill)
 
-After all tasks complete, invoke the `mm-writing` skill for LaTeX paper generation.
+**Pre-condition: Stage 3.5 must have completed.** Before invoking mm-writing, verify that `mm-workspace/03.5_review.json` exists. If it does not exist, you have skipped Stage 3.5 — go back and run it now.
+
+After all tasks complete and Stage 3.5 has passed, invoke the `mm-writing` skill for LaTeX paper generation.
 
 **Input**: All workspace JSON files + code + charts
 **Output**: `mm-workspace/05_paper/main.tex` → compiled `mm-workspace/05_paper/main.pdf`
