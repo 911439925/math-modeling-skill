@@ -1,6 +1,10 @@
 # MM-Skill: Universal Mathematical Modeling Plugin for Claude Code
 
+[中文文档](README_CN.md)
+
 A Claude Code skill plugin for full-pipeline mathematical modeling, designed for **all major math modeling competitions**.
+
+> **Current version: v0.4.4** — Pipeline state machine, schema enforcement, automated validation scripts.
 
 ## Supported Competitions
 
@@ -44,7 +48,8 @@ git clone https://github.com/911439925/math-modeling-skill.git "$env:USERPROFILE
 
 Marketplace users:
 ```bash
-/plugin update math-modeling@mm-skill-market
+/plugin marketplace update mm-skill-market
+/plugin install math-modeling@mm-skill-market
 ```
 
 Git clone users:
@@ -55,11 +60,14 @@ cd ~/.claude/skills/math-modeling-plugin && git pull
 ## Features
 
 - **Problem Analysis**: Deep analysis with Actor-Critic self-improvement (independent Critic subagent)
-- **Modeling & Decomposition**: High-level modeling solution, task splitting, DAG scheduling
-- **Task Solving**: HMML method retrieval, formula generation, Python code execution, result verification
-- **Global Quality Review**: Independent 5-dimension review with iterative rework (up to 3 rounds)
-- **Sensitivity Analysis**: Systematic sensitivity and robustness testing
-- **Paper Generation**: LaTeX source generation with competition-specific templates → PDF
+- **Modeling & Decomposition**: High-level modeling solution, task splitting (3-6 subtasks), DAG scheduling
+- **Task Solving**: HMML method retrieval (98 methods, 5 domains), formula generation, Python code execution, result verification
+- **Global Quality Review**: Independent 6-dimension review with iterative rework (up to 3 rounds, 80-point threshold)
+- **Sensitivity Analysis**: Systematic sensitivity and robustness testing (REQUIRED/RECOMMENDED/OPTIONAL priority)
+- **Paper Generation**: LaTeX source generation with competition-specific templates (MCM/CUMCM/generic) → PDF
+- **Pipeline State Machine**: `pipeline_state.json` enforces stage transitions — no stage can be skipped
+- **Schema Validation**: Automated task output validation (`validate_task_output.py`) with backfill
+- **Cross-Task Consistency**: Automated metric conflict and value chain checks (`cross_task_consistency.py`)
 - **Git Versioning**: Automatic workspace versioning with per-stage commits and iteration tags
 
 ## Usage
@@ -79,37 +87,43 @@ Or simply describe your problem:
 ### Pipeline Stages
 
 ```
-Initialization → Stage 1 → Stage 2 → Stage 3 → Stage 3.5 → [iterate?] → Stage 4 → Final
-                  ↓          ↓          ↓(auto)    ↓(subagent)              ↓
-               [review]   [review]   per-task   global review           LaTeX→PDF
-               [pause]    [pause]    +verify     +rework loop            [pause]
+Init → Stage 1 → Stage 2 → Stage 3 → Stage 3.5 → [iterate?] → Stage 4 → Final
+         ↓          ↓          ↓(auto)    ↓(mandatory)            ↓
+      [review]   [review]   per-task    global review          LaTeX→PDF
+      [pause]    [pause]    +verify     +rework loop            [pause]
 ```
 
 | Stage | Skill | Description | Pause? |
 |-------|-------|-------------|--------|
-| Init | math-model-command | Workspace init, git init, problem extraction | No |
-| 1 | mm-analysis | Problem analysis with Actor-Critic (independent Critic) | Yes |
-| 2 | mm-modeling | Modeling + task decomposition + DAG | Yes |
-| 3 | mm-solving | Per-task: HMML → formulas → code → verify (auto) | No |
-| 3.5 | mm-review | Global quality review (independent subagent, max 3 iterations) | On rework |
-| 4 | mm-writing | LaTeX paper generation → PDF | Yes |
+| Init | math-model-command | Workspace init, git init, problem extraction, pipeline state init | No |
+| 1 | mm-analysis | Problem analysis with Actor-Critic (independent Critic, 75-point threshold) | Yes |
+| 2 | mm-modeling | Modeling + task decomposition + DAG (75-point threshold) | Yes |
+| 3 | mm-solving | Per-task: HMML → formulas → code → schema validate → verify | No |
+| 3.5 | mm-review | Global quality review (independent subagent, 80-point threshold, max 3 iterations) | On rework |
+| 4 | mm-writing | LaTeX paper generation → PDF (requires Stage 3.5 passed) | Yes |
 
-### Global Constraints
+### Quality Gates
 
-- Max 2 concurrent subagents at any time
-- Git commit after every stage + task
-- Iteration tags for version tracking
+| Gate | Mechanism | Threshold |
+|------|-----------|-----------|
+| Stage 1 Actor-Critic | Independent Critic subagent scores the analysis | 75/100 |
+| Stage 2 Actor-Critic | Independent Critic subagent scores the modeling | 75/100 |
+| Per-task verification | Independent verification subagent checks each task result | Pass/Fail |
+| Schema validation | `validate_task_output.py` checks required JSON fields | All required fields present |
+| Cross-task consistency | `cross_task_consistency.py` checks metric conflicts + value chains | No conflicts |
+| Global review | Independent review subagent, 6 dimensions, iterative rework | 80/100 |
+| Stage 4 precondition | `pipeline_state.json` must show `stage_3_5_passed: true` | Hard gate |
 
 ### Output Structure
 
 ```
 mm-workspace/
 ├── .git/                     # Git version history
+├── pipeline_state.json       # Pipeline state machine (v0.4.4)
 ├── 01_analysis.json          # Stage 1 output
-├── 02_modeling.json          # Stage 2 output
+├── 02_modeling.json          # Stage 2 output (with DAG)
 ├── 03_task_1.json ...        # Stage 3 per-task outputs (with verification)
 ├── 03.5_review.json          # Stage 3.5 global review
-├── 04_abstract.json          # Generated abstract
 ├── 05_paper/                 # Stage 4 LaTeX paper
 │   ├── main.tex              # Main LaTeX source
 │   ├── main.pdf              # Compiled PDF
@@ -129,18 +143,66 @@ mm-workspace/
 
 ## Architecture
 
-References:
-- [MM-Agent](https://arxiv.org/abs/2505.14148) (NeurIPS 2025) — core pipeline design reference
+```
+plugins/math-modeling/
+├── .claude-plugin/plugin.json     # Plugin metadata
+├── scripts/                       # Automation scripts
+│   ├── validate_task_output.py    # Task JSON schema validation
+│   └── cross_task_consistency.py  # Cross-task consistency checks
+├── skills/
+│   ├── math-modeling/             # Main orchestrator + references
+│   │   ├── SKILL.md               # Pipeline definition, state machine, stage guards
+│   │   └── references/            # HMML index, Actor-Critic guide, templates, etc.
+│   ├── math-model-command/        # /math-model entry point
+│   ├── mm-analysis/               # Stage 1: Problem analysis
+│   ├── mm-modeling/               # Stage 2: Modeling & decomposition
+│   ├── mm-solving/                # Stage 3: Task solving (subagent dispatch)
+│   ├── mm-review/                 # Stage 3.5: Global quality review
+│   └── mm-writing/                # Stage 4: Paper generation
+```
+
+### Key Design Decisions
 
 | Concept | Implementation |
 |---------|---------------|
-| Pipeline orchestration | Claude Code as the LLM, stage-based SKILL files |
-| Method retrieval | HMML knowledge base with domain-level on-demand loading |
-| Code execution | Bash tool native execution |
-| Self-improvement | Actor-Critic with independent Critic subagent + adaptive rounds |
-| Quality assurance | Per-task verification + global review with iterative rework |
-| Version management | Git per-stage commits + iteration tags |
+| Pipeline enforcement | `pipeline_state.json` state machine with stage transition guards |
+| Method retrieval | HMML knowledge base (98 methods, 5 domains) with on-demand loading |
+| Self-improvement | Actor-Critic with independent Critic subagent + adaptive 1-3 rounds |
+| Quality assurance | Per-task verification subagent + schema validation + global review |
+| Cross-task integrity | `cross_task_consistency.py` + `known_issues` propagation via dispatch prompts |
+| Error recovery | Fix verification loop (max 1 re-attempt) + `_schema_incomplete` fallback |
 | Paper generation | LaTeX templates (MCM/CUMCM/generic) → PDF compilation |
+
+### References
+
+- [MM-Agent](https://arxiv.org/abs/2505.14148) (NeurIPS 2025) — core pipeline design reference
+
+## Changelog
+
+### v0.4.4
+- Pipeline state machine (`pipeline_state.json`) with stage transition guards
+- Task output schema validation script (`validate_task_output.py`)
+- Cross-task consistency check script (`cross_task_consistency.py`)
+- Stage 3.5 hard precondition in mm-writing (4-point verification)
+- Verification results standardized (embedded in task JSON)
+- Known issues propagation between subagents via dispatch prompts
+- Git commit/tag enforcement policy
+- Parallel dispatch fallback (sequential acceptable)
+- Sensitivity analysis test priority (REQUIRED/RECOMMENDED/OPTIONAL)
+- Fix verification loop (max 1 re-attempt per issue type)
+
+### v0.4.3
+- Per-task verification gate enforcement
+- Git operations removed from subagents (main agent only)
+
+### v0.4.2
+- Methodological rigor enhancements from MCM C practice
+
+### v0.4.1
+- Actor-Critic percent-based scoring system
+
+### v0.4.0
+- Subagent dispatch, independent verification, chart review, mandatory Stage 3.5
 
 ## License
 
