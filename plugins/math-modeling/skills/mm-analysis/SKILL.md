@@ -4,7 +4,7 @@ description: >
   Stage 1 of the mathematical modeling pipeline. Performs deep problem analysis
   using Actor-Critic self-improvement with percent-based scoring. Invoked by the
   math-modeling skill during Stage 1. Do not invoke directly — use /math-model instead.
-version: 0.4.3
+version: 0.4.4
 ---
 
 # Stage 1: Problem Analysis

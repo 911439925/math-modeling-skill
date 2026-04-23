@@ -6,7 +6,7 @@ description: >
   Checks cross-task consistency, numerical credibility, requirement coverage,
   model coherence, evidence sufficiency, and chart/figure quality.
   Invoked by the math-modeling skill after Stage 3. Do not invoke directly.
-version: 0.4.3
+version: 0.4.4
 ---
 
 # Stage 3.5: Global Quality Review

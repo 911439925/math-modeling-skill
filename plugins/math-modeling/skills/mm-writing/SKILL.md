@@ -5,7 +5,7 @@ description: >
   from all workspace outputs, compiles to PDF. Supports multiple competition
   templates. Invoked by the math-modeling skill during Stage 4.
   Do not invoke directly.
-version: 0.4.3
+version: 0.4.4
 ---
 
 # Stage 4: Paper Generation (LaTeX → PDF)
@@ -14,12 +14,23 @@ version: 0.4.3
 
 Generate a complete competition paper in LaTeX from all workspace outputs, then compile to PDF.
 
+## Pre-conditions (v0.4.4 硬性检查)
+
+**在执行任何论文生成步骤之前，你必须验证以下条件：**
+
+1. 读取 `mm-workspace/pipeline_state.json`
+2. 验证 `stage_3_5_review` 状态为 `"complete"`
+3. 验证 `stage_3_5_passed` 为 `true`
+4. 验证 `mm-workspace/03.5_review.json` 文件物理存在（用 Read 工具尝试读取）
+
+**如果以上任一条件不满足 → STOP。报告缺少什么条件，建议用户先运行 Stage 3.5 全局审查。不要跳过此检查直接生成论文。**
+
 ## Input
 
 - `mm-workspace/01_analysis.json` — problem analysis
 - `mm-workspace/02_modeling.json` — modeling solution and tasks
 - `mm-workspace/03_task_{id}.json` — all task outputs
-- `mm-workspace/04_abstract.json` — generated abstract
+- `mm-workspace/03.5_review.json` — global review results
 - `mm-workspace/charts/` — all figures
 - `mm-workspace/data/` — result data files
 
@@ -46,11 +57,21 @@ If the user's competition type is detected, use the corresponding template. Othe
 
 ### Step 1: Generate Abstract
 
-Load `references/abstract_guide.md` and follow its instructions:
-1. Read all `03_task_{id}.json` files
-2. Extract key results, methods, and innovations
-3. Generate abstract following the guide's structure
-4. Save to `mm-workspace/04_abstract.json`
+Load `references/abstract_guide.md` and follow its structure guidelines.
+
+Generate the abstract directly as a LaTeX section following the abstract_guide structure. The abstract MUST follow the guide's standards even if not saved as a separate JSON file.
+
+**Abstract 生成方式 (v0.4.4 简化)**:
+- 直接生成 LaTeX 格式的 abstract 文本，嵌入到论文中
+- 必须遵循 `abstract_guide.md` 定义的结构标准（问题重述、方法摘要、关键结果、结论）
+- 保存到 `mm-workspace/04_abstract.json` 作为结构化记录（可选但推荐）：
+  ```json
+  {
+    "abstract_text": "LaTeX 格式的摘要全文",
+    "keywords": ["关键词1", "关键词2"],
+    "stage": "abstract_complete"
+  }
+  ```
 
 ### Step 2: Load Template
 
@@ -62,7 +83,7 @@ If no template exists for the detected competition, use `references/templates/ge
 For each section of the paper, generate LaTeX content based on workspace outputs:
 
 #### Abstract Section
-- Read from `mm-workspace/04_abstract.json`
+- Use the abstract generated in Step 1
 - Insert into the abstract placeholder
 
 #### Problem Restatement

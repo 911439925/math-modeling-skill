@@ -6,7 +6,7 @@ description: >
   execute Python code, and interpret results. Each task runs in a subagent to minimize
   main session context usage. Invoked by the math-modeling skill during Stage 3.
   Do not invoke directly.
-version: 0.4.3
+version: 0.4.4
 ---
 
 # Stage 3: Task Solving (Subagent-Dispatched)
@@ -21,14 +21,17 @@ Solve each subtask by dispatching independent subagents. Each subagent handles t
 
 - `mm-workspace/01_analysis.json` — problem analysis
 - `mm-workspace/02_modeling.json` — modeling solution and task decomposition
+- `mm-workspace/pipeline_state.json` — pipeline state with known_issues (v0.4.4)
 
 ## Main Agent Role: Dispatch & Collect
 
 The main agent does NOT perform any task solving. It only:
 1. Reads `02_modeling.json` to get DAG order and task definitions
-2. Dispatches subagents for each task (respecting dependencies and concurrency limits)
-3. Collects results from each subagent
-4. Commits after each task and after all tasks complete
+2. Reads `pipeline_state.json` for known_issues to pass to subagents
+3. Dispatches subagents for each task (respecting dependencies and concurrency limits)
+4. Collects results from each subagent
+5. Validates schema compliance (v0.4.4 强化)
+6. Commits after each task and after all tasks complete
 
 ## Dispatch Process
 
@@ -38,9 +41,14 @@ Read `mm-workspace/02_modeling.json` to extract:
 - `dag_order` — execution sequence
 - `tasks` — task definitions with dependencies
 
+Read `mm-workspace/pipeline_state.json` to extract:
+- `stage_3_tasks` — per-task completion status
+- `known_issues` — accumulated warnings from previous tasks
+
 Build a dispatch plan:
 1. Group tasks by dependency level (tasks with same dependencies can run in parallel)
 2. Apply concurrency limit: max 2 subagents simultaneously
+3. **Fallback (v0.4.4)**: If parallel dispatch is not technically feasible, sequential execution is acceptable. Do not block the pipeline on parallelism.
 
 ### Step 2: Dispatch Task Subagents
 
@@ -67,13 +75,19 @@ Task ID: {id}
   Insert: task_id, key results, answer, output_files
 }
 
+## 已知问题和警告 (v0.4.4 新增)
+{Read pipeline_state.json known_issues array. For each issue relevant to current task:
+  - source_task: N, type: "...", detail: "..."
+Include ALL known issues from dependent tasks. If no known issues, write "无"}
+
 ## 求解步骤
 
 请严格按照以下步骤执行：
 
-### 1. HMML 方法检索
+### 1. HMML 方法检索 (必须执行，不可跳过)
 读取 reference 文件 references/hmml_index.md，根据任务类型加载相关领域文件（最多2个）。
 选出 top-6 最相关方法，检查 hmml_index.md 中的"常见方法组合模式"。
+**此步骤不可跳过。** 将选出的方法列表写入输出 JSON 的 retrieved_methods 字段。
 
 ### 2. 公式生成（Actor-Critic, 自适应 1-3 轮, 通过线 80 分）
 读取 references/actor_critic.md。
@@ -117,20 +131,21 @@ Task ID: {id}
 
 如果验证不通过，尝试修复一次。
 
-### 7. 保存输出
-将结果写入 mm-workspace/03_task_{id}.json，格式：
+### 7. 保存输出 (v0.4.4 schema 强制)
+将结果写入 mm-workspace/03_task_{id}.json，**必须包含以下所有字段**：
+
 ```json
 {
   "task_id": {id},
   "analysis": "任务分析",
-  "retrieved_methods": "top-6 方法",
-  "formulas": "数学公式",
-  "modeling_process": "建模过程",
+  "retrieved_methods": "HMML top-6 方法描述",
+  "formulas": "数学公式（LaTeX）",
+  "modeling_process": "建模过程详述",
   "code_path": "mm-workspace/code/task_{id}.py",
   "execution_success": true/false,
   "execution_result": "关键输出摘要",
   "result_interpretation": "结果解读",
-  "answer": "完整回答",
+  "answer": "完整回答（至少 50 字符）",
   "verification": {
     "passed": true/false,
     "checks": [
@@ -148,6 +163,13 @@ Task ID: {id}
   "stage": "task_complete"
 }
 ```
+
+**Schema 合规是强制性的 (v0.4.4)**:
+- 以上 JSON 中每个字段都必须存在且类型正确
+- `verification.checks` 数组长度 >= 4
+- `answer` 字符串长度 > 50
+- `code_path` 指向的文件必须存在
+- 缺少任何字段将导致主代理的 schema 验证失败（见 Step 3a.5）
 
 **重要：子代理不执行 git commit。** git 操作由主代理在验证完成后执行。子代理只负责保存 JSON 和代码文件。
 
@@ -170,9 +192,22 @@ Task ID: {id}
 
 **不允许只做层次 2 不做层次 1。两个层次都是必需的。**
 
+### 测试项优先级 (v0.4.4 新增)
+
+| 优先级 | 测试项 | 说明 |
+|--------|--------|------|
+| REQUIRED | 关键参数 ±10% 扰动 | 所有模型核心参数 |
+| REQUIRED | 弹性系数报告 | 参数变化 → 结果变化 |
+| REQUIRED | 最敏感参数识别 | tornado plot |
+| RECOMMENDED | 假设变化测试 | 方法变更边界 |
+| RECOMMENDED | 系统参数灵敏度 | 最终系统参数 |
+| OPTIONAL | 留一法交叉验证 | 计算量大，如时间允许则执行 |
+
+如果 context 或时间有限，优先完成 REQUIRED 项，RECOMMENDED 项尽量完成，OPTIONAL 项可跳过但需在结果中说明。
+
 ### 输出要求
 - 灵敏度龙卷风图（tornado plot）
-- 交叉验证准确率按赛季/折的图表
+- 交叉验证准确率按赛季/折的图表（如执行了交叉验证）
 - 明确结论：哪些参数/假设对最终结论影响最大
 
 输出中增加 `"is_sensitivity_analysis": true`
@@ -192,26 +227,29 @@ After each subagent completes:
 1. Read `mm-workspace/03_task_{id}.json` to verify it was saved correctly
 2. Check `execution_success` is true and `verification.passed` is true
 
-**3a.5. Output Schema Validation**
+**3a.5. Output Schema Validation (v0.4.4 强化)**
 
 Read `mm-workspace/03_task_{id}.json` and validate required fields:
 
-| Field | Type | Requirement |
-|-------|------|-------------|
-| task_id | int | Must equal current task ID |
-| execution_success | bool | Must exist |
-| stage | string | Must be "task_complete" |
-| verification.passed | bool | Must exist |
-| verification.checks | array | Length >= 4 |
-| answer | string | Length > 50 characters |
-| charts | array | Must exist (can be empty) |
-| result_interpretation | string | Must exist |
-| code_path | string | Must point to an existing file |
+| Field | Type | Requirement | On Missing |
+|-------|------|-------------|------------|
+| task_id | int | Must equal current task ID | ERROR — must fix |
+| execution_success | bool | Must exist | ERROR — must fix |
+| stage | string | Must be "task_complete" | Backfill if possible |
+| verification.passed | bool | Must exist | ERROR — must fix |
+| verification.checks | array | Length >= 4 | ERROR — must fix |
+| answer | string | Length > 50 characters | Backfill from result_interpretation |
+| charts | array | Must exist (can be empty) | Default to [] |
+| result_interpretation | string | Must exist | Backfill from answer |
+| code_path | string | Must point to existing file | ERROR — must fix |
+| retrieved_methods | string | Must exist (HMML retrieval) | Backfill "N/A" |
+| formulas | string | Must exist | Backfill from modeling_process |
+| modeling_process | string | Must exist | Backfill from analysis |
 
-If fields are missing:
-1. Attempt to extract from subagent output and backfill
-2. If unresolvable, mark `"_schema_incomplete": true` in the file
-3. Log a warning for the user
+**Validation failure handling (v0.4.4)**:
+1. **ERROR 级别缺失**: 核心字段。尝试从子代理输出中提取并回填（backfill）。如果回填失败，在 JSON 中标记 `"_schema_incomplete": true`，并写入 `pipeline_state.json` 的 `known_issues`
+2. **Backfill 级别缺失**: 从子代理的其他输出字段推断并填充
+3. **所有 backfill 尝试最多 1 次**，不要反复修复
 
 **3b. Independent Verification Subagent**
 
@@ -236,6 +274,9 @@ Task ID: {id}
 ## 前置任务关键结果（用于一致性检查）
 {For each dependency: task_id + answer + key numerical results}
 
+## 已知问题 (v0.4.4)
+{Insert any known_issues from pipeline_state.json that are relevant to this task or its dependencies. If none, write "无已知问题"}
+
 ## 验证要求
 
 请逐项检查并给出 Pass / Fail：
@@ -253,6 +294,7 @@ Task ID: {id}
 
 ## 输出格式
 
+严格按以下 JSON 格式输出，不要有多余文字：
 ```json
 {
   "task_id": {id},
@@ -273,15 +315,16 @@ Task ID: {id}
     "issues_found": ["问题1", "问题2"],
     "severity": "none" | "minor" | "major"
   }
+}
 ```
 ```
 
-**3c. Process Verification Results**
+**3c. Process Verification Results (v0.4.4 强化)**
 
 Read the subagent's verification output:
-- If `passed: true` or `severity: "none"/"minor"`: Accept the task result and proceed
-- If `severity: "major"`: Note the issue but proceed (the global review in Stage 3.5 will catch it)
-- Update `mm-workspace/03_task_{id}.json` with the `independent_verification` field
+1. If `passed: true` or `severity: "none"/"minor"`: Accept the task result
+2. If `severity: "major"`: Note the issue, add to `pipeline_state.json` `known_issues` array with format `{"source_task": id, "type": "verification_major", "detail": "问题摘要"}`
+3. **MUST update `mm-workspace/03_task_{id}.json`**: Read the file, add the `independent_verification` object from the verification subagent, and write it back. The verification result MUST be embedded in the task JSON's `independent_verification` field, not saved as a separate file.
 
 Display a brief summary to the user (2-3 sentences per task).
 
@@ -306,9 +349,15 @@ When N > 2 tasks can run in parallel:
 5. Repeat until all parallel tasks are done
 6. Proceed to dependent tasks
 
-### Rules
-- Each subagent works in its own isolated context — this is the key benefit for context management
-- Ensure no file conflicts (each task writes to its own files)
-- Wait for all parallel tasks in a batch to complete before dispatching dependent tasks
-- Never dispatch more than 2 Agent tool calls simultaneously
-- Subagents must be self-contained: include all necessary context in the dispatch prompt
+### Parallel Dispatch Fallback (v0.4.4)
+
+If the Agent tool does not support parallel dispatch in your environment, sequential execution is acceptable. The parallelism hint in `02_modeling.json` `parallel_groups` is a recommendation, not a requirement. **Do not block the pipeline if parallel dispatch fails.**
+
+## Fix Verification Loop (v0.4.4 新增)
+
+When a task is fixed (either through schema validation backfill or rework):
+
+1. Re-run schema validation (Step 3a.5) on the fixed `03_task_{id}.json`
+2. If still fails: mark `_schema_incomplete: true`, add to `known_issues`, proceed
+3. **Max 1 fix attempt per issue type** — do not enter infinite fix-validate loops
+4. If the fix required code re-execution, re-run independent verification (Step 3b) for the fixed task
