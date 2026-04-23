@@ -229,27 +229,20 @@ After each subagent completes:
 
 **3a.5. Output Schema Validation (v0.4.4 强化)**
 
-Read `mm-workspace/03_task_{id}.json` and validate required fields:
+Run the schema validation script:
 
-| Field | Type | Requirement | On Missing |
-|-------|------|-------------|------------|
-| task_id | int | Must equal current task ID | ERROR — must fix |
-| execution_success | bool | Must exist | ERROR — must fix |
-| stage | string | Must be "task_complete" | Backfill if possible |
-| verification.passed | bool | Must exist | ERROR — must fix |
-| verification.checks | array | Length >= 4 | ERROR — must fix |
-| answer | string | Length > 50 characters | Backfill from result_interpretation |
-| charts | array | Must exist (can be empty) | Default to [] |
-| result_interpretation | string | Must exist | Backfill from answer |
-| code_path | string | Must point to existing file | ERROR — must fix |
-| retrieved_methods | string | Must exist (HMML retrieval) | Backfill "N/A" |
-| formulas | string | Must exist | Backfill from modeling_process |
-| modeling_process | string | Must exist | Backfill from analysis |
+```bash
+python scripts/validate_task_output.py mm-workspace/03_task_{id}.json --fix
+```
 
-**Validation failure handling (v0.4.4)**:
-1. **ERROR 级别缺失**: 核心字段。尝试从子代理输出中提取并回填（backfill）。如果回填失败，在 JSON 中标记 `"_schema_incomplete": true`，并写入 `pipeline_state.json` 的 `known_issues`
-2. **Backfill 级别缺失**: 从子代理的其他输出字段推断并填充
-3. **所有 backfill 尝试最多 1 次**，不要反复修复
+The script validates all required fields (task_id, execution_success, stage, verification, answer, charts, result_interpretation, code_path, retrieved_methods, formulas, modeling_process) with ERROR/BACKFILL/WARN level classification. With `--fix` it attempts automatic backfill for inferable fields.
+
+Exit codes: 0 = pass, 1 = has errors, 2 = has warnings.
+
+**If the script exits with errors**:
+1. Attempt to extract missing data from subagent output and backfill manually (max 1 attempt)
+2. If still failing: mark `"_schema_incomplete": true` in the JSON, add to `pipeline_state.json` known_issues
+3. Proceed to verification (Step 3b) — do not block on schema issues
 
 **3b. Independent Verification Subagent**
 

@@ -248,15 +248,22 @@ for each task in dag_order:
 
 #### 跨任务一致性快速检查（每个 Task 完成后主代理执行）
 
-每个 Task 子代理返回后，主代理在 collect 阶段执行以下快速检查：
+每个 Task 子代理返回后，运行跨任务一致性检查脚本：
 
-1. **JSON 格式完整性**: 校验 `03_task_{id}.json` 必填字段（见 mm-solving Step 3a.5）
+```bash
+python scripts/cross_task_consistency.py mm-workspace --current-task {id}
+```
+
+该脚本自动执行以下检查：
+
+1. **JSON 格式完整性**: 校验 `03_task_{id}.json` 必填字段
 2. **指标名称冲突**: 提取当前 Task 所有量化指标名称，与已完成 Task 比较
    - 同名但数值量级差异 > 10x → 标记警告
-   - 同名但含义不同 → 标记警告
-3. **数值传递链**: 如果当前 Task 依赖前置 Task 的数值输出
+3. **数值传递链**: 根据 `02_modeling.json` 的 DAG 依赖关系
    - 验证当前 Task 使用的输入值 ≈ 前置 Task 报告的输出值
    - 偏差 > 5% → 标记警告
+
+脚本输出包含 `known_issues` 格式的 JSON 数组，可直接追加到 `pipeline_state.json` 的 `known_issues` 字段。
 
 **检查结果处理 (v0.4.4 强化)**:
 - 警告写入 `pipeline_state.json` 的 `known_issues` 数组
